@@ -42,14 +42,14 @@ Architecture: a modular monolith (one deployable) whose modules can be extracted
 
 ## 5. Stack and commands
 Java 21, Spring Boot 4.x, Gradle (Kotlin DSL), PostgreSQL 16, Redis 7 (from spec 02), Flyway, Docker Compose.
-Testing: JUnit 5, AssertJ, Mockito (boundaries only), Testcontainers, ArchUnit. Quality: Spotless, Checkstyle, SpotBugs, JaCoCo. Security: OWASP Dependency-Check, gitleaks. API compatibility: oasdiff.
+Testing: JUnit 5, AssertJ, Mockito (boundaries only), Testcontainers, ArchUnit. Quality: Spotless, JaCoCo (Checkstyle and SpotBugs deferred, D13). Security: OWASP Dependency-Check, gitleaks. API compatibility: oasdiff.
 
 | Purpose | Command |
 |---|---|
 | Run everything locally | `docker compose up --build` |
 | Unit tests only (fast) | `./gradlew test` |
-| Full gate (definition of done) | `./gradlew check` (unit + integration + ArchUnit + lint + coverage + API compatibility) |
-| Dependency scan | `./gradlew dependencyCheckAnalyze` (when dependencies change) |
+| Full gate (definition of done) | `./gradlew check` (unit + integration + ArchUnit + Spotless + coverage + API compatibility) |
+| Dependency scan | `./gradlew dependencyCheckAnalyze` (manual pre-release gate, D13) |
 | Secret scan | `gitleaks detect --source .` |
 | Format | `./gradlew spotlessApply` |
 
@@ -119,7 +119,7 @@ io.github.harshmittal.urlshortener
 ## 12. Definition of done (per task)
 - [ ] Linked acceptance criteria pass, with test names that reference them
 - [ ] `./gradlew check` passes; real output reported, never assumed
-- [ ] No new SpotBugs or Checkstyle findings; gitleaks clean
+- [ ] Spotless clean; gitleaks clean
 - [ ] Spec, `api/openapi.yaml`, ARCHITECTURE.md and SECURITY.md updated if behaviour, design or controls changed
 - [ ] `docs/AI_LOG.md` entry drafted (§13)
 - [ ] One atomic commit: `type(scope): summary`; body says why and lists ACs

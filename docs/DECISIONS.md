@@ -19,6 +19,7 @@ Format: lightweight ADRs. A changed decision gets a new entry that supersedes th
 | D10 | Builder and reviewer agents, engineer as approver | Accepted |
 | D11 | In-process events inside the monolith; no broker | Accepted |
 | D12 | Redis introduced in the brownfield scenario | Accepted |
+| D13 | Scope cuts for the time budget | Accepted |
 
 ---
 
@@ -81,3 +82,18 @@ Format: lightweight ADRs. A changed decision gets a new entry that supersedes th
 ### D12 Redis introduced in the brownfield scenario
 - **Decision:** Spec 01 reads links from Postgres only. Spec 02 adds Redis as a `LinkLookup` decorator.
 - **Why:** Gives the brownfield scenario a real, cross-cutting change with impact analysis and failure handling.
+
+### D13 Scope cuts for the time budget
+- **Context:** About 3.5–4 hours of build time remain, split across sessions. Cuts target tooling overhead, never functionality or security controls.
+- **Decision:**
+
+| Cut | Why | What still covers it |
+|---|---|---|
+| OWASP Dependency-Check moved from every build to a pre-release gate | First run downloads a large vulnerability database and needs an API key; too slow for every build | Run once before submission; blocks release on CVSS ≥ 7 |
+| Checkstyle deferred | Rule sets need tuning; catches style, not defects | Spotless enforces formatting |
+| SpotBugs deferred | Tends to lag new Java/Boot versions; high debugging risk | Tests, ArchUnit, second-agent review, engineer diff review |
+| Spec 01 delivered in 6–8 tasks, not 12+ | Each task carries commit, review and log overhead | Each task is still one reviewable change linked to ACs |
+| Spec 03 kept narrow | The scenario assesses handling ambiguity, not feature breadth | Written clarifications plus a minimal click-count endpoint |
+
+- **Unchanged:** all three scenarios, URL policy, API-key auth, owner scoping, append-only audit, tests, ArchUnit, coverage, oasdiff, gitleaks, spec gates, AI log.
+- **Consequences:** Fewer static checks in the prototype. Deferred checks are listed as next steps in SUMMARY.md.

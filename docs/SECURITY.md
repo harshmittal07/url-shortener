@@ -90,7 +90,7 @@ Security response headers on all API responses: `X-Content-Type-Options: nosniff
 | Append-only audit | Testcontainers integration test | Every `./gradlew check` |
 | Module isolation and layering | ArchUnit | Every `./gradlew check` |
 | API compatibility | oasdiff against `api/openapi.yaml` | Every `./gradlew check` |
-| Static analysis | SpotBugs, Checkstyle | Every `./gradlew check` |
+| Static analysis | Checkstyle, SpotBugs | Deferred (D13) |
 | Dependencies | OWASP Dependency-Check | When dependencies change, and before submission |
 | Secrets | gitleaks | Before each commit, and before submission |
 | Human review | Engineer review of every diff; second-agent review of every commit | Every task |
