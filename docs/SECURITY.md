@@ -27,7 +27,7 @@ Security is proportionate to the threat model below. Controls not justified by a
 | T6 | Enumerating short codes | Discovery of private links | S-06 | Planned (spec 01) |
 | T7 | Unauthorized delete or modify of another owner's link | Integrity loss | S-07, S-08 | Planned (spec 01) |
 | T8 | API key theft from DB, logs or responses | Account takeover | S-07, S-12 | Planned (spec 01) |
-| T9 | Abuse at volume (spam creation, redirect flooding) | Cost, reputation, availability | S-09 | Planned (spec 01) |
+| T9 | Abuse at volume (spam creation, redirect flooding) | Cost, reputation, availability | S-09 | Planned (creation: spec 01; per-IP: spec 02) |
 | T10 | Tampering with or deleting audit records | Loss of accountability | S-10, S-11 | Planned (spec 01) |
 | T11 | Sensitive data in logs (keys, tokens in URLs, raw IPs) | Data leak | S-12 | Planned (spec 01) |
 | T12 | Vulnerable dependencies or leaked secrets in repo | Compromise | S-13, S-14 | Planned (spec 01) |
@@ -51,7 +51,7 @@ Update Status to `Implemented (<test name>)` as controls land.
 - **S-06 Unguessable codes.** `SecureRandom` Base62, length 7 (~3.5 × 10¹²). Uniqueness via DB constraint with up to 3 retries. If custom aliases are added later, reserved words (`api`, `actuator`, `health`, `docs`, …) are blocked.
 - **S-07 API key handling.** 256 bits of randomness with a public key-ID prefix for lookup. Only a SHA-256 hash is stored (safe for high-entropy keys, unlike human passwords). Constant-time comparison. Shown once at creation, never again. Revocable.
 - **S-08 Owner scoping.** Management endpoints act only on links owned by the calling key. Cross-owner access returns `404`.
-- **S-09 Rate limiting.** Per API key for link creation; per client IP for redirects (Bucket4j). Exceeding returns `429` with `Retry-After` and writes an audit event. Limitation: in-memory buckets are per instance (§10).
+- **S-09 Rate limiting.** Per API key for link creation (spec 01). Per client IP for redirects and unauthenticated `/api/**` requests (spec 02); this needs trusted-proxy configuration to see real client IPs behind Docker or a load balancer. Bucket4j. Exceeding returns `429` with `Retry-After` and writes an audit event. Limitation: in-memory buckets are per instance (§10).
 
 ## 6. Controls — audit (shared kernel)
 - **S-10 Audit events.** One row per event in `audit.audit_events`:
@@ -64,10 +64,10 @@ Update Status to `Implemented (<test name>)` as controls land.
 ## 7. Controls — data handling, supply chain, runtime and architecture
 - **S-12 Log hygiene.** Structured JSON with `requestId`. Never log API keys, full target URLs, raw client IPs or request bodies. Log short code, key ID and a salted IP hash.
 - **S-13 Dependency scanning.** OWASP Dependency-Check runs as a manual pre-release gate (D13) and blocks submission on CVSS ≥ 7 unless a suppression records a justification and an expiry date.
-- **S-14 Secret scanning.** gitleaks before commit and in the full gate. Secrets only from environment variables; only `.env.example` is committed; dev credentials in `docker-compose.yml` are marked dev-only.
+- **S-14 Secret scanning.** gitleaks before each commit and before submission. Secrets only from environment variables; only `.env.example` is committed; dev credentials in `docker-compose.yml` are marked dev-only.
 - **S-15 Container hardening.** Minimal JRE base image, non-root user, read-only root filesystem where possible.
 - **S-16 Safe errors.** RFC 9457 problem details with stable error codes; no stack traces, SQL or class names in responses.
-- **S-17 Actuator exposure.** Only `health`, `info` and `prometheus`, on a separate management port not exposed publicly.
+- **S-17 Actuator exposure.** Only `health` and `info`, on a separate management port not exposed publicly. A `prometheus` endpoint is a follow-up.
 - **S-18 Analytics privacy (spec 03).** No raw IPs stored. Retention, bot handling and stats visibility are decided in spec 03.
 - **S-19 Cache consistency (spec 02).** Delete and disable evict the cache entry; TTL as backstop. Redis unavailable → read the database (fail open on cache, never on auth or policy).
 - **S-20 Module isolation.** Each module owns its Postgres schema; ArchUnit forbids access to another module's `domain`, `adapter` or persistence classes. In the monolith one DB role serves all modules; per-module DB roles arrive when a module is extracted (§10).

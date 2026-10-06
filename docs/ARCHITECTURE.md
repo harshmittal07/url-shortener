@@ -51,13 +51,16 @@ flowchart TB
     end
     subgraph shared["shared kernel"]
       SEC["API-key auth filter"]
+      IDN["API keys · schema identity"]
       AUD["AuditSink · schema audit"]
       RID["request IDs, errors, Clock"]
+      SEC --> IDN
     end
     EP -.->|"in-process event"| AC
     LS --> AUD
   end
   LP --> PG[("PostgreSQL")]
+  IDN --> PG
   AUD --> PG
   AS --> PG
 ```
@@ -70,12 +73,14 @@ Rules (enforced by ArchUnit, detailed in AGENTS.md §6):
 ## 5. API surface (versionless, D6)
 | Method and path | Purpose | Auth | Spec |
 |---|---|---|---|
+| `POST /api/keys` | Issue an owner API key | Admin key | 01 |
 | `POST /api/links` | Create a short link | API key | 01 |
 | `GET /api/links/{code}` | Link metadata (owner only) | API key | 01 |
 | `DELETE /api/links/{code}` | Delete a link (owner only) | API key | 01 |
 | `GET /{code}` | Redirect with `302` | none | 01 |
 | `POST /api/links/{code}/disable` | Takedown; evicts cache | API key (owner or admin) | 02 |
 | `GET /api/links/{code}/stats` | Click stats (owner only) | API key | 03 |
+| `GET /v3/api-docs` | OpenAPI document | none | 01 |
 
 The contract baseline is `api/openapi.yaml`. Errors use RFC 9457 problem details.
 
@@ -127,7 +132,7 @@ sequenceDiagram
 ## 7. Data model (initial)
 ```mermaid
 erDiagram
-  API_KEYS ||--o{ LINKS : owns
+  API_KEYS ||..o{ LINKS : "owns (key ID, no FK)"
   LINKS ||--o{ CLICK_EVENTS : "counted by (spec 03)"
   API_KEYS {
     uuid id PK
@@ -140,7 +145,7 @@ erDiagram
     uuid id PK
     string code UK
     string target_url
-    uuid owner_key_id FK
+    uuid owner_key_id
     string status
     timestamp created_at
   }
@@ -162,10 +167,14 @@ erDiagram
     timestamp occurred_at
   }
 ```
-Schemas: `link` (api_keys, links), `audit` (audit_events), `analytics` (spec 03 decides the final shape). `owner_key_id` is a foreign key inside the `link` schema only; no foreign keys cross schemas.
+Schemas: `identity` (api_keys, owned by the shared kernel), `link` (links), `audit` (audit_events, owned by the shared kernel), `analytics` (spec 03 decides the final shape). `links.owner_key_id` holds the owner's key ID with no foreign key: no foreign keys cross schemas, and the link module never reads `identity` tables.
 
 ## 8. Deployment
-`docker compose up --build` starts: the application container (non-root, actuator on a separate internal port), PostgreSQL 16, and Redis 7 (from spec 02). Configuration comes from environment variables; `.env.example` documents them.
+`docker compose up --build` starts: PostgreSQL 16, a one-shot Flyway migration step, the application container (non-root, read-only root filesystem, actuator on a separate internal port), and Redis 7 (from spec 02). Configuration comes from environment variables; `.env.example` documents them.
+
+The database has two users:
+- **Migration user:** owns the schemas and runs Flyway in the one-shot step. Only that step gets its credentials.
+- **Application user:** serves requests. It has no DDL rights and only `INSERT` and `SELECT` on `audit.audit_events`. The application container receives only these credentials.
 
 ## 9. Failure modes
 | Failure | Behaviour | Why |
@@ -174,6 +183,7 @@ Schemas: `link` (api_keys, links), `audit` (audit_events), `analytics` (spec 03 
 | PostgreSQL unavailable | Management API and uncached redirects return `503`; cached redirects still served | DB is the source of truth |
 | Analytics listener fails | Redirect still succeeds; event failure is logged and counted | Analytics never degrades the redirect path (D11) |
 | Audit write fails | The whole state change rolls back | No change without a record (S-10) |
+| Audit write fails on a rejection | The request is still rejected with its original response; the audit failure is logged | A rejection never fails open (R20 in spec 01) |
 | Short-code collision | Retry up to 3 times, then `503` | Constraint-based safety (S-06) |
 | Rate limit exceeded | `429` with `Retry-After`, audited | Abuse control (S-09) |
 
@@ -196,6 +206,6 @@ What each step changes:
 | Brownfield | `02-redis-cache` | A cross-cutting change added as a decorator, with impact analysis and characterization tests, leaving domain code untouched |
 | Ambiguous | `03-click-analytics` | Open questions surfaced and resolved explicitly (what counts as a click, PII, retention, visibility) before a narrow implementation |
 
-## 12. Open items for spec 01
-- How the first API key is issued (for example, a bootstrap admin key from an environment variable that can mint owner keys). To be decided in spec 01, Phase 1.
-- Response for unknown versus deleted codes (`404` for both, or `410` for deleted). To be decided in spec 01.
+## 12. Resolved items from spec 01
+- **First API key:** a bootstrap admin key, configured only as its SHA-256 hash (`BOOTSTRAP_ADMIN_KEY_HASH`), issues owner keys via `POST /api/keys`. The admin key cannot own links.
+- **Unknown versus deleted codes:** `404` for both, with identical responses. Deleted codes are never reused.

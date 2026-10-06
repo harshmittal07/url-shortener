@@ -99,7 +99,7 @@ io.github.harshmittal.urlshortener
 - Short codes: `SecureRandom`, Base62, length 7. Collision → retry up to 3 times, then fail.
 - API keys: stored only as SHA-256 hashes, compared in constant time, never logged or returned after creation.
 - Secrets come from environment variables. Only `.env.example` with placeholders is committed.
-- Rate-limit link creation per API key and redirects per client IP.
+- Rate-limit link creation per API key (spec 01). Rate-limit redirects and unauthenticated `/api/**` requests per client IP (spec 02).
 - Tests name the control they cover (`S-xx`); specs reference control IDs in their non-functional requirements.
 
 ## 10. Audit and logging
