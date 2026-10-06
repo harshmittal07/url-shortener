@@ -19,6 +19,7 @@ Outcome values: **Accepted** (used as generated) · **Edited** (used after engin
 ## Task log
 | Task | Agent | Role | Prompt summary (intent · constraints · acceptance) | Files | Generated | Agent's uncertainties | Outcome | Rationale |
 |---|---|---|---|---|---|---|---|---|
+| 00-setup | Claude Code (CLI), Codex (IntelliJ AI Assistant) | Both | Verify project rules load; test secret-file read denial | — | Rule summaries | First session started before rules were added and correctly refused to guess | Accepted | Both agents load AGENTS.md (Claude cited §7–9; Codex stated severity order and read-only role). .env* read blocked via deny rule; shell attempt blocked by approval prompt; agent did not work around it. Residual risk: deny rules don't cover approved shell commands. |
 | 01-T1 | Claude Code | Builder | | | | | | |
 | 01-T1 | Codex | Reviewer | Review commit against spec, AGENTS.md, SECURITY.md | — | Findings list | | | |
 

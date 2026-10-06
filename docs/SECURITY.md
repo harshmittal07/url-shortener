@@ -81,6 +81,7 @@ Security response headers on all API responses: `X-Content-Type-Options: nosniff
   - No generated code is committed without engineer review of the diff; high-impact areas (AGENTS.md §13) need an approved plan first.
   - A second agent reviews each commit against this file; findings and decisions are recorded in `docs/AI_LOG.md`.
   - Generated code passes the same gates as human code: tests, ArchUnit, static analysis, dependency and secret scans.
+  - Residual risk: path deny rules do not cover shell commands the engineer approves. Mitigations: no real secrets in the project folder, every shell command reviewed before approval, reviewer agent read-only by instruction (Codex in IDE; a sandboxed CLI is the stronger option).
 
 ## 9. Verification
 | Gate | How | When |
