@@ -35,3 +35,13 @@ out/
 
 ### VS Code ###
 .vscode/
+.env
+.env.*
+!.env.example
+.gradle/
+build/
+out/
+.idea/
+*.iml
+.DS_Store
+.claude/settings.local.json
