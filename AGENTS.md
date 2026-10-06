@@ -132,6 +132,6 @@ io.github.harshmittal.urlshortener
 ## 14. Never
 - Never edit `AGENTS.md`, `CLAUDE.md`, `docs/DECISIONS.md`, `docs/SECURITY.md` or `docs/process/*` unless the engineer asks.
 - Never disable, skip or weaken a test, ArchUnit rule, lint rule, compatibility check or security check to make a build pass.
-- Never add a dependency without stating why in the plan; run the dependency scan after.
+- Never add a dependency without stating why in the plan. New dependencies are covered by the pre-release dependency scan (D13).
 - Never commit secrets, real credentials or `.env`. Never read `.env`.
 - Never add features, endpoints or config that are not in an approved spec.
