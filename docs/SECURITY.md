@@ -63,7 +63,7 @@ Update Status to `Implemented (<test name>)` as controls land.
 
 ## 7. Controls — data handling, supply chain, runtime and architecture
 - **S-12 Log hygiene.** Structured JSON with `requestId`. Never log API keys, full target URLs, raw client IPs or request bodies. Log short code, key ID and a salted IP hash.
-- **S-13 Dependency scanning.** OWASP Dependency-Check fails on CVSS ≥ 7 unless a suppression records a justification and an expiry date.
+- **S-13 Dependency scanning.** OWASP Dependency-Check runs as a manual pre-release gate (D13) and blocks submission on CVSS ≥ 7 unless a suppression records a justification and an expiry date.
 - **S-14 Secret scanning.** gitleaks before commit and in the full gate. Secrets only from environment variables; only `.env.example` is committed; dev credentials in `docker-compose.yml` are marked dev-only.
 - **S-15 Container hardening.** Minimal JRE base image, non-root user, read-only root filesystem where possible.
 - **S-16 Safe errors.** RFC 9457 problem details with stable error codes; no stack traces, SQL or class names in responses.
@@ -91,7 +91,7 @@ Security response headers on all API responses: `X-Content-Type-Options: nosniff
 | Module isolation and layering | ArchUnit | Every `./gradlew check` |
 | API compatibility | oasdiff against `api/openapi.yaml` | Every `./gradlew check` |
 | Static analysis | Checkstyle, SpotBugs | Deferred (D13) |
-| Dependencies | OWASP Dependency-Check | When dependencies change, and before submission |
+| Dependencies | OWASP Dependency-Check | Manual pre-release gate, before submission (D13) |
 | Secrets | gitleaks | Before each commit, and before submission |
 | Human review | Engineer review of every diff; second-agent review of every commit | Every task |
 
