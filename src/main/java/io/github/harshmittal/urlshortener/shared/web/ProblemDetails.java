@@ -26,6 +26,8 @@ public final class ProblemDetails {
     public static String codeFor(HttpStatusCode status) {
         return switch (status.value()) {
             case 400 -> "validation-failed";
+            case 401 -> "unauthorized";
+            case 403 -> "forbidden";
             case 404 -> "not-found";
             case 413 -> "payload-too-large";
             case 500 -> "internal-error";

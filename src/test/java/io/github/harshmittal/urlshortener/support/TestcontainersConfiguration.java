@@ -6,6 +6,7 @@ import org.springframework.boot.flyway.autoconfigure.FlywayConnectionDetails;
 import org.springframework.boot.jdbc.autoconfigure.JdbcConnectionDetails;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.test.context.DynamicPropertyRegistrar;
 
 /**
  * The application connects as the application user; Flyway migrates as the migration user (R21,
@@ -52,6 +53,11 @@ public class TestcontainersConfiguration {
                 return PostgresTestDatabase.jdbcUrl();
             }
         };
+    }
+
+    @Bean
+    DynamicPropertyRegistrar bootstrapAdminKeyHash() {
+        return registry -> registry.add("BOOTSTRAP_ADMIN_KEY_HASH", TestAdminKey::hash);
     }
 
     @Bean

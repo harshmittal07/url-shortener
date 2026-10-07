@@ -13,7 +13,7 @@ Each task is one commit, written test first, and ends with `./gradlew check` gre
   - ArchUnit rules 1–6, Spotless, JaCoCo 80% on `domain` packages. Check Spotless on Gradle 9.7 and Boot 4.1 first.
   - Tests first: `MigrationsContainNoSecretsTest`, `SchemaIT`, `DatabasePrivilegesIT`, `RequestIdIT`, ArchUnit tests.
 
-- [ ] **T2 Vertical slice: keys, create, redirect, audit** (AC1–AC5, AC8–AC11, AC22–AC25, AC30 (create), AC32)
+- [x] **T2 Vertical slice: keys, create, redirect, audit** (AC1–AC5, AC8–AC11, AC22–AC25, AC30 (create), AC32)
   - Identity: `ApiKeyIssuer`, `ApiKeyAuthenticator` (dummy-hash compare on miss), `ApiKeyAuthenticationFilter`, roles `ADMIN` / `OWNER`, `POST /api/keys`, `scripts/new-admin-key.sh` (plan §6).
   - Audit: `AuditTrail` with the change path (same transaction) and the rejection path (`requiresNew`, best effort); `JdbcAuditSink`; `UnitOfWork`.
   - Link: `LinkService.create` with `SecureRandomShortCodeGenerator`, `ON CONFLICT DO NOTHING` and up to 3 retries; `StandardUrlPolicy` with the scheme rule only; `POST /api/links`.

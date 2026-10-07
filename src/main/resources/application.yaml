@@ -8,3 +8,9 @@ spring:
     schemas: flyway,identity,link,audit
     default-schema: flyway
     create-schemas: true
+
+# Required environment variables (R22). No defaults: startup fails if any is missing.
+url-shortener:
+  public-base-url: ${PUBLIC_BASE_URL}
+  ip-hash-salt: ${IP_HASH_SALT}
+  bootstrap-admin-key-hash: ${BOOTSTRAP_ADMIN_KEY_HASH}

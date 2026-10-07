@@ -52,16 +52,12 @@ final class ArchitectureRules {
             .callMethod(UUID.class, "randomUUID")
             .as("rule 2: domain does not call Instant.now(), LocalDateTime.now(), new Random() or UUID.randomUUID()");
 
-    // Rules 3 and 4b constrain the link and redirect modules, which land in T2. allowEmptyShould
-    // keeps them active until then; the self-test proves they detect violations. Remove it in T2.
-
     /** Rule 3a: redirect reaches link only through its public api package. */
     static final ArchRule REDIRECT_USES_LINK_ONLY_THROUGH_API = noClasses()
             .that()
             .resideInAPackage("..redirect..")
             .should()
             .dependOnClassesThat(resideInAPackage("..link..").and(not(resideInAPackage("..link.api.."))))
-            .allowEmptyShould(true)
             .as("rule 3: redirect depends on link only through link.api");
 
     /** Rule 3b: link does not know about redirect. */
@@ -71,7 +67,6 @@ final class ArchitectureRules {
             .should()
             .dependOnClassesThat()
             .resideInAPackage("..redirect..")
-            .allowEmptyShould(true)
             .as("rule 3: link does not depend on redirect");
 
     /** Rule 3c: the shared kernel holds no business modules' code. */
@@ -99,7 +94,6 @@ final class ArchitectureRules {
             .should()
             .dependOnClassesThat()
             .resideInAPackage("..shared.identity..")
-            .allowEmptyShould(true)
             .as("rule 4: link does not depend on shared.identity");
 
     /** Rule 5a: app is the only composition root. */

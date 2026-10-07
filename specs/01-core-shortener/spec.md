@@ -298,6 +298,11 @@ Your answers settled these: key issuance, unknown vs deleted codes, soft delete,
   - It describes the public contract, which isn't secret.
   - The plan decides whether to serve the committed `api/openapi.yaml` or a generated document checked against it.
 - A12 **Audit mirror lines.** They use a dedicated logger name (for example `AUDIT`) so a SIEM can filter them, at the level R23 assigns: INFO for state changes, WARN for rejections.
+- A13 **Audit values and the 401 challenge (confirmed after T2).**
+  - Audit `outcome` is `SUCCESS` for state changes and `REJECTED` for rejections.
+  - `AUTH_FAILED` reason codes are `MISSING`, `MALFORMED`, `UNKNOWN` and `REVOKED`. `ACCESS_DENIED` for a wrong role uses `WRONG_ROLE`.
+  - `resource_type` is `API_KEY` or `LINK`.
+  - `401` responses include `WWW-Authenticate: Bearer`.
 
 ## Follow-ups (not in spec 01)
 - **Per-client-IP rate limiting** (spec 02). It covers redirects and unauthenticated `/api/**` traffic (L1). It needs the S-09 update and a decision on audit volume under a flood (one row per rejected request, or one per IP per window).

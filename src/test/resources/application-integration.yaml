@@ -3,3 +3,7 @@
 spring:
   flyway:
     enabled: true
+
+# Test-only values. BOOTSTRAP_ADMIN_KEY_HASH comes from scripts/new-admin-key.sh at test start.
+PUBLIC_BASE_URL: https://sho.rt
+IP_HASH_SALT: integration-tests-only-salt-0123456789abcdef
