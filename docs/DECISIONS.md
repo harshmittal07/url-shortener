@@ -20,6 +20,7 @@ Format: lightweight ADRs. A changed decision gets a new entry that supersedes th
 | D11 | In-process events inside the monolith; no broker | Accepted |
 | D12 | Redis introduced in the brownfield scenario | Accepted |
 | D13 | Scope cuts for the time budget | Accepted |
+| D14 | Persistence with `JdbcClient`, not JPA | Accepted |
 
 ---
 
@@ -97,3 +98,9 @@ Format: lightweight ADRs. A changed decision gets a new entry that supersedes th
 
 - **Unchanged:** all three scenarios, URL policy, API-key auth, owner scoping, append-only audit, tests, ArchUnit, coverage, oasdiff, gitleaks, spec gates, AI log.
 - **Consequences:** Fewer static checks in the prototype. Deferred checks are listed as next steps in SUMMARY.md.
+
+### D14 Persistence with `JdbcClient`, not JPA
+- **Context:** Accepted at spec 01 Gate 2 (2026-10-07). The scaffold includes Spring Data JPA. Spec 01 has three small tables, relies on `INSERT ... ON CONFLICT DO NOTHING` for collision-safe code inserts (S-06), and uses column-level grants for least privilege (R21).
+- **Decision:** Persistence adapters use Spring's `JdbcClient` with explicit, parameterized SQL. `spring-boot-starter-data-jpa` is replaced by `spring-boot-starter-jdbc`. Transactions go through a `UnitOfWork` port backed by `TransactionTemplate`.
+- **Alternatives:** Spring Data JPA (less SQL to write, but hides `ON CONFLICT` and update statements behind entity state, and adds an entity layer that must be kept out of the domain).
+- **Consequences:** SQL and transaction boundaries are visible in review. Row mapping is written by hand. AGENTS.md §7's "never expose JPA entities" still holds trivially. Later specs add persistence the same way unless a new decision supersedes this one.

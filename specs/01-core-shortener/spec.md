@@ -116,6 +116,7 @@ Every error body carries `type`, `title`, `status`, `code` and `requestId`.
 | 404 | `not-found` | Unknown, deleted, malformed or other owner's code |
 | 413 | `payload-too-large` | Request body on `/api/**` over 8 KB |
 | 429 | `rate-limited` | Creation limit exceeded; `Retry-After` set |
+| 500 | `internal-error` | Unexpected failure, including a failed audit write during a state change (AC30) |
 | 503 | `code-generation-failed` | Short-code collision after 3 retries |
 | 503 | `service-unavailable` | Database unavailable |
 
