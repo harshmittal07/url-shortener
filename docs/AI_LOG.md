@@ -27,3 +27,12 @@ Outcome values: **Accepted** (used as generated) · **Edited** (used after engin
 | # | Task | What the AI produced | Why it was wrong | What replaced it |
 |---|---|---|---|---|
 | 1 | | | | |
+
+## Work sessions
+| Session | Date | Start | End | Focus | Notes |
+|---|---|---|---|---|---|
+| 0 | 2026-10-05 | 21:17 | 23:30 | Planning and decisions (D1–D12) | Before the build; options explored with Claude chat, decisions made by me |
+| 1 | 2026-10-05/06 | 23:30 | 02:15 | Environment setup, project rules, spec 01 to Gate 1 | About 30 minutes lost to Docker (Rosetta) and macOS folder permissions |
+| 2 | 2026-10-07 | 05:51 | | Gates 2 and 3, build spec 01 | |
+
+Gaps between sessions are planned breaks; the work was split around other commitments.
