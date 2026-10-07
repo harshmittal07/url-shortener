@@ -31,7 +31,7 @@ Each task is one commit, written test first, and ends with `./gradlew check` gre
   - Complete S-01 to S-05 in `StandardUrlPolicy`: host ranges and IP encodings, userinfo, self-reference, malformed and too long, IDN to punycode.
   - Tests first: `StandardUrlPolicyTest` (a parameterized table per reason, plus punycode), `UrlRejectedIT`.
 
-- [ ] **T5 Abuse controls and hardening** (AC26–AC29, AC33, AC40, AC42 (DB outage: M), AC43–AC45)
+- [x] **T5 Abuse controls and hardening** (AC26–AC29, AC33, AC40, AC42 (DB outage: M), AC43–AC45)
   - `RateLimiter` port with `Bucket4jRateLimiter` (Clock-driven) and `CreationRateLimitInterceptor`. Check Bucket4j on Boot 4.1 first.
   - `RequestBodyLimitFilter` (8 KB, declared and streamed); security headers; database-outage `503` with a 2 s Hikari timeout; rejection-audit failure handling; log hygiene; actuator on the management port with `health` and `info` only.
   - The database-outage `503` is checked manually through `scripts/smoke-test.sh` (added in T6), not by an integration test (D15).

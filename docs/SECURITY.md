@@ -26,13 +26,13 @@ Security is proportionate to the threat model below. Controls not justified by a
 | T5 | Header injection through crafted target URL | Response splitting | S-05 | Implemented (`StandardUrlPolicyTest`, `UrlRejectedIT`) |
 | T6 | Enumerating short codes | Discovery of private links | S-06 | Implemented (`ShortCodeGeneratorContract`, `CodeCollisionIT`); per-IP redirect limit in spec 02 |
 | T7 | Unauthorized delete or modify of another owner's link | Integrity loss | S-07, S-08 | Implemented (`AuthenticationIT`, `ManageLinkIT`) |
-| T8 | API key theft from DB, logs or responses | Account takeover | S-07, S-12 | S-07 implemented (`KeyIssuanceIT`, `ApiKeyAuthenticatorTest`); S-12 planned (T5) |
-| T9 | Abuse at volume (spam creation, redirect flooding) | Cost, reputation, availability | S-09 | Planned (creation: spec 01; per-IP: spec 02) |
+| T8 | API key theft from DB, logs or responses | Account takeover | S-07, S-12 | S-07 implemented (`KeyIssuanceIT`, `ApiKeyAuthenticatorTest`); S-12 implemented (`LogHygieneIT`) |
+| T9 | Abuse at volume (spam creation, redirect flooding) | Cost, reputation, availability | S-09 | Creation limit implemented (`CreationRateLimitIT`); per-IP planned (spec 02) |
 | T10 | Tampering with or deleting audit records | Loss of accountability | S-10, S-11 | Implemented (`AuditAtomicityIT`, `AuditEventShapeIT`, `DatabasePrivilegesIT`) |
-| T11 | Sensitive data in logs (keys, tokens in URLs, raw IPs) | Data leak | S-12 | Planned (spec 01) |
+| T11 | Sensitive data in logs (keys, tokens in URLs, raw IPs) | Data leak | S-12 | Implemented (`LogHygieneIT`) |
 | T12 | Vulnerable dependencies or leaked secrets in repo | Compromise | S-13, S-14 | Planned (spec 01) |
 | T13 | Container breakout / excess privileges | Host compromise | S-15 | Planned (spec 01) |
-| T14 | Information leakage in errors / actuator | Recon for attackers | S-16, S-17 | S-16 partly implemented (`SharedExceptionHandlerTest`; DB-outage `503` in T5); S-17 planned (T5) |
+| T14 | Information leakage in errors / actuator | Recon for attackers | S-16, S-17 | S-16 implemented (`ErrorResponsesIT`, `SharedExceptionHandlerTest`; real DB outage checked by the T6 smoke test, D15); S-17 implemented (`ActuatorExposureIT`) |
 | T15 | Personal data in click analytics | Privacy and compliance exposure | S-18 | Spec 03 |
 | T16 | Stale cache serving deleted or disabled links | Takedown ineffective | S-19 | Spec 02 |
 | T17 | Module boundary bypass (one module reading another's tables) | Hidden coupling; controls bypassed at extraction | S-20 | Implemented (`ArchitectureTest`, `SchemaIT`) |

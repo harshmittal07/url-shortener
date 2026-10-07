@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
@@ -49,6 +50,15 @@ public class LinkExceptionHandler {
                         HttpStatus.SERVICE_UNAVAILABLE,
                         "code-generation-failed",
                         RequestIdFilter.requestIdOf(request)));
+    }
+
+    @ExceptionHandler(CreationRateLimitedException.class)
+    ResponseEntity<ProblemDetail> rateLimited(CreationRateLimitedException e, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(e.retryAfterSeconds()))
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(ProblemDetails.of(
+                        HttpStatus.TOO_MANY_REQUESTS, "rate-limited", RequestIdFilter.requestIdOf(request)));
     }
 
     private static ResponseEntity<ProblemDetail> respond(HttpStatus status, ProblemDetail problem) {

@@ -8,9 +8,25 @@ spring:
     schemas: flyway,identity,link,audit
     default-schema: flyway
     create-schemas: true
+  datasource:
+    hikari:
+      # Fail fast when the database is down: requests answer 503 within about 2 s (plan §8, AC42).
+      connection-timeout: 2000
+
+# Actuator on its own port, not published outside the container network; health and info only
+# (R31, S-17).
+management:
+  server:
+    port: 8081
+  endpoints:
+    web:
+      exposure:
+        include: health,info
 
 # Required environment variables (R22). No defaults: startup fails if any is missing.
 url-shortener:
   public-base-url: ${PUBLIC_BASE_URL}
   ip-hash-salt: ${IP_HASH_SALT}
   bootstrap-admin-key-hash: ${BOOTSTRAP_ADMIN_KEY_HASH}
+  # Optional (R15).
+  link-create-limit-per-minute: ${LINK_CREATE_LIMIT_PER_MINUTE:60}

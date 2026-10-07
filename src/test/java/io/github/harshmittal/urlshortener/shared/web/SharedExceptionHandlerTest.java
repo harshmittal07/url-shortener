@@ -7,13 +7,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.sql.SQLException;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -74,13 +80,51 @@ class SharedExceptionHandlerTest {
                 .andExpect(jsonPath("$.detail").doesNotExist());
     }
 
+    @ParameterizedTest(name = "[{index}] {0}")
+    @ValueSource(strings = {"/db/connection", "/db/transaction", "/db/resource"})
+    @DisplayName("AC42, S-16: a database outage becomes 503 service-unavailable with no internal detail")
+    void databaseOutageIsServiceUnavailable(String path) throws Exception {
+        MvcResult result = mvc.perform(get(path).header("X-Request-Id", "req-503"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("service-unavailable"))
+                .andExpect(jsonPath("$.type").value("urn:url-shortener:problem:service-unavailable"))
+                .andExpect(jsonPath("$.requestId").value("req-503"))
+                .andExpect(jsonPath("$.detail").doesNotExist())
+                .andReturn();
+
+        assertThat(result.getResponse().getContentAsString())
+                .doesNotContain(FailingController.DB_DETAIL)
+                .doesNotContain("Exception")
+                .doesNotContain("jdbc:");
+    }
+
     @RestController
     static class FailingController {
         static final String SECRET_DETAIL = "SELECT secret FROM internals";
+        static final String DB_DETAIL = "Failed to obtain JDBC Connection: jdbc:postgresql://db:5432/urlshortener";
 
         @GetMapping("/boom")
         String boom() {
             throw new IllegalStateException(SECRET_DETAIL);
+        }
+
+        /** What JdbcClient throws when Hikari cannot hand out a connection. */
+        @GetMapping("/db/connection")
+        String connection() {
+            throw new CannotGetJdbcConnectionException(DB_DETAIL, new SQLException(DB_DETAIL));
+        }
+
+        /** What TransactionTemplate throws when it cannot open a connection to begin. */
+        @GetMapping("/db/transaction")
+        String transaction() {
+            throw new CannotCreateTransactionException(DB_DETAIL, new SQLException(DB_DETAIL));
+        }
+
+        /** What a query on a broken pooled connection becomes (SQL state class 08). */
+        @GetMapping("/db/resource")
+        String resource() {
+            throw new DataAccessResourceFailureException(DB_DETAIL);
         }
     }
 }

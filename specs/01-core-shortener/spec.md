@@ -303,6 +303,7 @@ Your answers settled these: key issuance, unknown vs deleted codes, soft delete,
   - `AUTH_FAILED` reason codes are `MISSING`, `MALFORMED`, `UNKNOWN` and `REVOKED`. `ACCESS_DENIED` for a wrong role uses `WRONG_ROLE`.
   - `WRONG_ROLE` covers any `/api` route that no role is granted, including routes with no rule (default-deny, T3).
   - `ACCESS_DENIED` for another key's link uses `NOT_OWNER` (confirmed after T3).
+  - `RATE_LIMITED` for the per-key creation limit uses `CREATE_LIMIT` (confirmed after T5). Spec 02's per-IP limit uses a different code.
   - `resource_type` is `API_KEY` or `LINK`.
   - `401` responses include `WWW-Authenticate: Bearer`.
 - A14 **Self-reference scope (confirmed after T4).** Self-reference (AC15, S-04) is an exact host match against the host of `PUBLIC_BASE_URL`, ignoring case, port, a trailing dot and fullwidth forms. Subdomains of the public host are allowed.

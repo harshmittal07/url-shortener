@@ -18,6 +18,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.servlet.HandlerExceptionResolver;
 
 /**
  * Authenticates {@code Authorization: Bearer <key>} on {@code /api/**}. On failure it records the
@@ -30,9 +31,11 @@ public final class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER = "Bearer ";
 
     private final Authenticator authenticator;
+    private final HandlerExceptionResolver exceptionResolver;
 
-    public ApiKeyAuthenticationFilter(Authenticator authenticator) {
+    public ApiKeyAuthenticationFilter(Authenticator authenticator, HandlerExceptionResolver exceptionResolver) {
         this.authenticator = authenticator;
+        this.exceptionResolver = exceptionResolver;
     }
 
     static Reason failureOf(HttpServletRequest request) {
@@ -48,7 +51,15 @@ public final class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        AuthenticationResult result = authenticator.authenticate(bearerToken(request));
+        AuthenticationResult result;
+        try {
+            result = authenticator.authenticate(bearerToken(request));
+        } catch (RuntimeException e) {
+            // The key could not be checked (e.g. database down). That is not an authentication
+            // failure: the shared handler answers 503 or 500, and the request goes no further.
+            exceptionResolver.resolveException(request, response, null, e);
+            return;
+        }
         switch (result) {
             case Authenticated authenticated -> authenticate(authenticated.principal());
             case Failed failed -> request.setAttribute(FAILURE_ATTRIBUTE, failed.reason());

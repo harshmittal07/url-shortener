@@ -1,5 +1,6 @@
 package io.github.harshmittal.urlshortener.app;
 
+import io.github.harshmittal.urlshortener.link.adapter.in.web.CreationRateLimitInterceptor;
 import io.github.harshmittal.urlshortener.link.adapter.in.web.LinkController;
 import io.github.harshmittal.urlshortener.link.adapter.in.web.LinkExceptionHandler;
 import io.github.harshmittal.urlshortener.link.adapter.out.persistence.JdbcLinkRepository;
@@ -13,6 +14,7 @@ import io.github.harshmittal.urlshortener.link.domain.StandardUrlPolicy;
 import io.github.harshmittal.urlshortener.link.domain.UrlPolicy;
 import io.github.harshmittal.urlshortener.shared.audit.domain.AuditTrail;
 import io.github.harshmittal.urlshortener.shared.id.domain.IdGenerator;
+import io.github.harshmittal.urlshortener.shared.ratelimit.adapter.out.bucket4j.Bucket4jRateLimiter;
 import io.github.harshmittal.urlshortener.shared.tx.domain.UnitOfWork;
 import io.github.harshmittal.urlshortener.shared.web.RequestAuditContexts;
 import java.time.Clock;
@@ -63,6 +65,16 @@ class LinkConfig {
             RequestAuditContexts auditContexts,
             @Value("${url-shortener.public-base-url}") String publicBaseUrl) {
         return new LinkController(links, auditContexts, publicBaseUrl);
+    }
+
+    /** Per-key creation limit (R15); {@code LINK_CREATE_LIMIT_PER_MINUTE}, default 60. */
+    @Bean
+    CreationRateLimitInterceptor creationRateLimitInterceptor(
+            AuditTrail audit,
+            RequestAuditContexts auditContexts,
+            Clock clock,
+            @Value("${url-shortener.link-create-limit-per-minute}") int limitPerMinute) {
+        return new CreationRateLimitInterceptor(new Bucket4jRateLimiter(limitPerMinute, clock), audit, auditContexts);
     }
 
     @Bean

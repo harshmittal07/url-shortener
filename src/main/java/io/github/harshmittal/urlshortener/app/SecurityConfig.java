@@ -35,7 +35,7 @@ class SecurityConfig {
             throws Exception {
         // Created here rather than as a bean, so Spring Boot does not also register it as a
         // servlet filter for every path.
-        var apiKeyFilter = new ApiKeyAuthenticationFilter(authenticator);
+        var apiKeyFilter = new ApiKeyAuthenticationFilter(authenticator, exceptionResolver);
         return http.csrf(AbstractHttpConfigurer::disable) // no cookies or sessions to forge
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
