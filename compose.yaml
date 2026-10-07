@@ -61,6 +61,8 @@ services:
       BOOTSTRAP_ADMIN_KEY_HASH: ${BOOTSTRAP_ADMIN_KEY_HASH:?set BOOTSTRAP_ADMIN_KEY_HASH in .env}
       # Optional (R15). Unset or empty falls back to 30, the application's default, rather than "".
       LINK_CREATE_LIMIT_PER_MINUTE: ${LINK_CREATE_LIMIT_PER_MINUTE:-30}
+      # Optional (spec 02 R12). Unset or empty falls back to 500, the application's default.
+      LINK_DAILY_QUOTA: ${LINK_DAILY_QUOTA:-500}
     ports:
       - "8080:8080"
     read_only: true

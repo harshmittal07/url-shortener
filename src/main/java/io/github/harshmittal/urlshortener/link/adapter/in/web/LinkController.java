@@ -59,7 +59,7 @@ public class LinkController {
     @ApiResponse(responseCode = "413", ref = ProblemDetails.OPENAPI_RESPONSE)
     @ApiResponse(
             responseCode = "429",
-            description = "Creation limit reached",
+            description = "Per-minute creation limit or daily link quota reached",
             headers = @Header(name = "Retry-After", schema = @Schema(type = "integer")),
             content =
                     @Content(

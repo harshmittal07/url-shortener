@@ -1,9 +1,11 @@
 package io.github.harshmittal.urlshortener.link.domain;
 
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 public final class InMemoryLinkRepository implements LinkRepository {
 
@@ -35,6 +37,15 @@ public final class InMemoryLinkRepository implements LinkRepository {
                         LinkStatus.DELETED,
                         link.createdAt()));
         return true;
+    }
+
+    @Override
+    public long countCreatedBy(UUID ownerKeyId, Instant from, Instant until) {
+        return byCode.values().stream()
+                .filter(link -> link.ownerKeyId().equals(ownerKeyId))
+                .filter(link ->
+                        !link.createdAt().isBefore(from) && link.createdAt().isBefore(until))
+                .count();
     }
 
     public List<Link> all() {

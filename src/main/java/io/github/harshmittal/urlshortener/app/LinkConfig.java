@@ -42,6 +42,7 @@ class LinkConfig {
         return new StandardUrlPolicy(settings.publicBaseUrl());
     }
 
+    /** Daily link quota per key (spec 02); {@code LINK_DAILY_QUOTA}, default 500 (D16). */
     @Bean
     LinkService linkService(
             LinkRepository links,
@@ -50,8 +51,10 @@ class LinkConfig {
             AuditTrail audit,
             UnitOfWork unitOfWork,
             Clock clock,
-            IdGenerator ids) {
-        return new LinkService(links, codes, urlPolicy, audit, unitOfWork, clock, ids);
+            IdGenerator ids,
+            @Value("${url-shortener.link-daily-quota}") String dailyQuota) {
+        return new LinkService(
+                links, codes, urlPolicy, audit, unitOfWork, clock, ids, DailyQuotaSetting.parse(dailyQuota));
     }
 
     @Bean

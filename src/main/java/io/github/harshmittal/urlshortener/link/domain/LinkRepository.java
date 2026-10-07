@@ -1,6 +1,8 @@
 package io.github.harshmittal.urlshortener.link.domain;
 
+import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface LinkRepository {
 
@@ -21,4 +23,10 @@ public interface LinkRepository {
      * @return false if no active link has the code
      */
     boolean markDeleted(ShortCode code);
+
+    /**
+     * Counts the owner's links created in {@code [from, until)}, whatever their status: deleted links
+     * count (spec 02 R1, R2).
+     */
+    long countCreatedBy(UUID ownerKeyId, Instant from, Instant until);
 }
