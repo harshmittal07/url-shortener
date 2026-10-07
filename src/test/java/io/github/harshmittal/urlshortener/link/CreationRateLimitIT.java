@@ -7,11 +7,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.jayway.jsonpath.JsonPath;
 import io.github.harshmittal.urlshortener.support.ApiCalls;
 import io.github.harshmittal.urlshortener.support.ApiCalls.Owner;
 import io.github.harshmittal.urlshortener.support.AuditRows;
 import io.github.harshmittal.urlshortener.support.IntegrationTest;
 import io.github.harshmittal.urlshortener.support.RequestBodies;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -72,6 +74,33 @@ class CreationRateLimitIT {
             assertThat(event.get("reason_code")).isEqualTo("CREATE_LIMIT");
             assertThat(event.get("client_ip_hash")).isNotNull();
         });
+    }
+
+    /** Characterization before spec 02: the daily quota's 429 must leave this body untouched. */
+    @Test
+    @DisplayName("AC22 (spec 02): the rate-limited body keeps its exact field set")
+    void rateLimitedBodyShape() throws Exception {
+        Owner owner = ApiCalls.newOwner(mvc);
+        for (int attempt = 1; attempt <= LIMIT; attempt++) {
+            createAllowed(owner).andExpect(status().isCreated());
+        }
+        String requestId = "ac22-" + UUID.randomUUID();
+
+        String body = ApiCalls.createLink(mvc, owner.key(), "https://example.com/" + requestId, requestId)
+                .andExpect(status().isTooManyRequests())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        Map<String, Object> problem = JsonPath.read(body, "$");
+        assertThat(problem)
+                .containsOnlyKeys("type", "title", "status", "instance", "code", "requestId")
+                .containsEntry("type", "urn:url-shortener:problem:rate-limited")
+                .containsEntry("instance", "/api/links")
+                .containsEntry("title", "Too Many Requests")
+                .containsEntry("status", 429)
+                .containsEntry("code", "rate-limited")
+                .containsEntry("requestId", requestId);
     }
 
     @Test

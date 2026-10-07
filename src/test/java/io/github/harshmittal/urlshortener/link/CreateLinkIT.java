@@ -2,6 +2,7 @@ package io.github.harshmittal.urlshortener.link;
 
 import static io.github.harshmittal.urlshortener.support.ApiCalls.bearer;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -90,6 +91,26 @@ class CreateLinkIT {
         String second = ApiCalls.newLinkCode(mvc, owner.key(), "https://example.com/same");
 
         assertThat(first).isNotEqualTo(second);
+    }
+
+    /** Characterization before spec 02: deleting links neither blocks nor is required for creating more. */
+    @Test
+    @DisplayName("G2 (spec 02): a key that created and deleted links can create again")
+    void createsAfterDeletingLinks() throws Exception {
+        for (int i = 0; i < 2; i++) {
+            String code = ApiCalls.newLinkCode(mvc, owner.key(), "https://example.com/g2-" + i);
+            mvc.perform(delete("/api/links/" + code).header("Authorization", bearer(owner.key())))
+                    .andExpect(status().isNoContent());
+        }
+
+        ApiCalls.createLink(mvc, owner.key(), "https://example.com/g2-after", "g2-" + UUID.randomUUID())
+                .andExpect(status().isCreated());
+
+        int stored = jdbc.sql("SELECT count(*) FROM link.links WHERE owner_key_id = :owner")
+                .param("owner", owner.keyId())
+                .query(Integer.class)
+                .single();
+        assertThat(stored).isEqualTo(3);
     }
 
     @Test
