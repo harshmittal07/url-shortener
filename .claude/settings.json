@@ -6,7 +6,17 @@
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
-      "Bash(gitleaks:*)"
+      "Bash(gitleaks:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(shasum:*)",
+      "Bash(cmp:*)",
+      "Bash(git show:*)",
+      "Bash(git --no-pager:*)"
     ],
     "deny": [
       "Read(./.env)",
