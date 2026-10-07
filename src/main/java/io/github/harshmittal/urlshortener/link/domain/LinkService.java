@@ -13,11 +13,15 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Owner use cases for links: create (T2) within the daily quota (spec 02), read and soft delete (T3). */
+/**
+ * Owner use cases for links: create (T2) within the daily quota (spec 02), read and soft delete (T3),
+ * and list (spec 03).
+ */
 public final class LinkService {
 
     static final String RESOURCE_TYPE = "LINK";
@@ -27,6 +31,10 @@ public final class LinkService {
     static final String NOT_OWNER = "NOT_OWNER";
     /** RATE_LIMITED reason for the daily link quota; the per-minute limit uses CREATE_LIMIT (spec 02 R7). */
     static final String DAILY_QUOTA = "DAILY_QUOTA";
+    /** Items in one list response when the caller gives no limit (spec 03 R4). */
+    public static final int DEFAULT_LIST_LIMIT = 50;
+    /** The most items one list response may hold (spec 03 R4). */
+    public static final int MAX_LIST_LIMIT = 100;
 
     private static final Logger log = LoggerFactory.getLogger(LinkService.class);
 
@@ -121,6 +129,21 @@ public final class LinkService {
             return link;
         });
         log.info("Link deleted: code={} actorKeyId={}", code, ownerKeyId);
+    }
+
+    /**
+     * Lists the caller's active links, newest first (spec 03 R2–R4). A read: no audit event (R7).
+     *
+     * @throws IllegalArgumentException if {@code limit} is outside 1 to {@link #MAX_LIST_LIMIT}; the
+     *     web layer validates it first (R5)
+     */
+    public List<Link> list(UUID ownerKeyId, int limit) {
+        if (limit < 1 || limit > MAX_LIST_LIMIT) {
+            throw new IllegalArgumentException("The list limit must be from 1 to " + MAX_LIST_LIMIT);
+        }
+        List<Link> listed = links.findActiveByOwner(ownerKeyId, limit);
+        log.info("Links listed: count={} actorKeyId={}", listed.size(), ownerKeyId);
+        return listed;
     }
 
     /**

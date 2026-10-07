@@ -32,6 +32,38 @@ paths:
       tags:
       - keys
   /api/links:
+    get:
+      operationId: listLinks
+      parameters:
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkList"
+          description: OK
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "503":
+          $ref: "#/components/responses/Problem"
+      security:
+      - apiKey: []
+      summary: List the caller's active links, newest first
+      tags:
+      - links
     post:
       operationId: createLink
       requestBody:
@@ -232,6 +264,15 @@ components:
       - shortUrl
       - status
       - targetUrl
+    LinkList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Link"
+      required:
+      - items
     Problem:
       type: object
       properties:

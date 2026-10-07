@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -121,6 +122,63 @@ public abstract class LinkRepositoryContract {
                 .isEqualTo(1);
         assertThat(repository().countCreatedBy(UUID.randomUUID(), DAY_START, NEXT_DAY_START))
                 .isZero();
+    }
+
+    @Test
+    @DisplayName("AC2 (spec 03), S-08: the list holds only the given owner's links; an owner with none gets none")
+    void listIsPerOwner() {
+        UUID owner = UUID.randomUUID();
+        Link own = link(TestCodes.random(), owner, DAY_START.plusSeconds(1));
+        repository().insertIfCodeFree(own);
+        repository().insertIfCodeFree(link(TestCodes.random(), UUID.randomUUID(), DAY_START.plusSeconds(2)));
+
+        assertThat(repository().findActiveByOwner(owner, 100)).containsExactly(own);
+        assertThat(repository().findActiveByOwner(UUID.randomUUID(), 100)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("AC3 (spec 03): the list leaves out the owner's deleted links")
+    void listLeavesOutDeletedLinks() {
+        UUID owner = UUID.randomUUID();
+        Link kept = link(TestCodes.random(), owner, DAY_START.plusSeconds(1));
+        Link deleted = link(TestCodes.random(), owner, DAY_START.plusSeconds(2));
+        repository().insertIfCodeFree(kept);
+        repository().insertIfCodeFree(deleted);
+        repository().markDeleted(deleted.code());
+
+        assertThat(repository().findActiveByOwner(owner, 100)).containsExactly(kept);
+    }
+
+    @Test
+    @DisplayName("AC4 (spec 03): newest first; a creation-time tie is ordered by code, descending binary order")
+    void listIsNewestFirstWithBinaryCodeTieBreak() {
+        UUID owner = UUID.randomUUID();
+        String rest = TestCodes.random().value().substring(1);
+        // Binary order puts 'a' (97) after 'B' (66); a linguistic collation would not.
+        Link tiedUpper = link(new ShortCode("B" + rest), owner, DAY_START.plusSeconds(10));
+        Link tiedLower = link(new ShortCode("a" + rest), owner, DAY_START.plusSeconds(10));
+        Link oldest = link(TestCodes.random(), owner, DAY_START.plusSeconds(1));
+        Link newest = link(TestCodes.random(), owner, DAY_START.plusSeconds(20));
+        for (Link link : List.of(oldest, tiedUpper, newest, tiedLower)) {
+            assertThat(repository().insertIfCodeFree(link)).isTrue();
+        }
+
+        assertThat(repository().findActiveByOwner(owner, 100)).containsExactly(newest, tiedLower, tiedUpper, oldest);
+    }
+
+    @Test
+    @DisplayName("AC5, AC6 (spec 03): the list holds at most limit links, the newest ones")
+    void listHoldsAtMostLimitNewest() {
+        UUID owner = UUID.randomUUID();
+        List<Link> created = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            Link link = link(TestCodes.random(), owner, DAY_START.plusSeconds(i));
+            repository().insertIfCodeFree(link);
+            created.add(link);
+        }
+
+        assertThat(repository().findActiveByOwner(owner, 2)).containsExactly(created.get(3), created.get(2));
+        assertThat(repository().findActiveByOwner(owner, 1)).containsExactly(created.get(3));
     }
 
     private static Link link(ShortCode code, LinkStatus status) {

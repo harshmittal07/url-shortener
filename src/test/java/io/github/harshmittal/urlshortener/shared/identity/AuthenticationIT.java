@@ -56,7 +56,12 @@ class AuthenticationIT {
     }
 
     static Stream<String> apiEndpoints() {
-        return Stream.of("POST /api/keys", "POST /api/links", "GET /api/links/abcdefg", "DELETE /api/links/abcdefg");
+        return Stream.of(
+                "POST /api/keys",
+                "POST /api/links",
+                "GET /api/links",
+                "GET /api/links/abcdefg",
+                "DELETE /api/links/abcdefg");
     }
 
     static Stream<Arguments> badCredentialsOnEveryEndpoint() {
