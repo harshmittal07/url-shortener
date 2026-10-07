@@ -36,7 +36,7 @@ class LinkServiceTest {
         return new LinkService(
                 links,
                 codes,
-                new StandardUrlPolicy(),
+                new StandardUrlPolicy("https://sho.rt"),
                 new AuditTrail(auditSink, new InlineUnitOfWork(), clock, UUID::randomUUID),
                 new InlineUnitOfWork(),
                 clock,

@@ -135,3 +135,4 @@ io.github.harshmittal.urlshortener
 - Never add a dependency without stating why in the plan. New dependencies are covered by the pre-release dependency scan (D13).
 - Never commit secrets, real credentials or `.env`. Never read `.env`.
 - Never add features, endpoints or config that are not in an approved spec.
+- Never change source, test or config files through shell scripts (python3, sed, awk, heredocs). Use the file edit tool so the engineer sees every change as a diff. Scripts are for read-only work such as parsing reports; the only exception is a mutation check that restores the file byte for byte.

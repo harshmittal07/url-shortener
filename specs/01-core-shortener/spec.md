@@ -305,6 +305,7 @@ Your answers settled these: key issuance, unknown vs deleted codes, soft delete,
   - `ACCESS_DENIED` for another key's link uses `NOT_OWNER` (confirmed after T3).
   - `resource_type` is `API_KEY` or `LINK`.
   - `401` responses include `WWW-Authenticate: Bearer`.
+- A14 **Self-reference scope (confirmed after T4).** Self-reference (AC15, S-04) is an exact host match against the host of `PUBLIC_BASE_URL`, ignoring case, port, a trailing dot and fullwidth forms. Subdomains of the public host are allowed.
 
 ## Follow-ups (not in spec 01)
 - **Per-client-IP rate limiting** (spec 02). It covers redirects and unauthenticated `/api/**` traffic (L1). It needs the S-09 update and a decision on audit volume under a flood (one row per rejected request, or one per IP per window).

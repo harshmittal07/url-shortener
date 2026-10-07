@@ -19,11 +19,11 @@ Security is proportionate to the threat model below. Controls not justified by a
 ## 3. Threat model
 | ID | Threat | Impact | Control(s) | Status |
 |---|---|---|---|---|
-| T1 | Shortening a malicious scheme (`javascript:`, `data:`, `file:`) | Script execution / phishing via a trusted domain | S-01 | Implemented (`StandardUrlPolicyTest`) |
-| T2 | Redirect to internal or loopback hosts | Users' browsers pivoted into internal networks | S-02 | Planned (spec 01) |
-| T3 | Phishing disguised with userinfo (`https://bank.com@evil.com`) | Users misled about destination | S-03 | Planned (spec 01) |
-| T4 | Redirect loops via own domain | Resource exhaustion, broken links | S-04 | Planned (spec 01) |
-| T5 | Header injection through crafted target URL | Response splitting | S-05 | Planned (spec 01) |
+| T1 | Shortening a malicious scheme (`javascript:`, `data:`, `file:`) | Script execution / phishing via a trusted domain | S-01 | Implemented (`StandardUrlPolicyTest`, `CreateLinkIT`) |
+| T2 | Redirect to internal or loopback hosts | Users' browsers pivoted into internal networks | S-02 | Implemented (`StandardUrlPolicyTest`, `UrlRejectedIT`) |
+| T3 | Phishing disguised with userinfo (`https://bank.com@evil.com`) | Users misled about destination | S-03 | Implemented (`StandardUrlPolicyTest`, `UrlRejectedIT`) |
+| T4 | Redirect loops via own domain | Resource exhaustion, broken links | S-04 | Implemented (`StandardUrlPolicyTest`, `UrlRejectedIT`) |
+| T5 | Header injection through crafted target URL | Response splitting | S-05 | Implemented (`StandardUrlPolicyTest`, `UrlRejectedIT`) |
 | T6 | Enumerating short codes | Discovery of private links | S-06 | Implemented (`ShortCodeGeneratorContract`, `CodeCollisionIT`); per-IP redirect limit in spec 02 |
 | T7 | Unauthorized delete or modify of another owner's link | Integrity loss | S-07, S-08 | Implemented (`AuthenticationIT`, `ManageLinkIT`) |
 | T8 | API key theft from DB, logs or responses | Account takeover | S-07, S-12 | S-07 implemented (`KeyIssuanceIT`, `ApiKeyAuthenticatorTest`); S-12 planned (T5) |
@@ -42,7 +42,10 @@ Update Status to `Implemented (<test name>)` as controls land.
 
 ## 4. Controls — input and URL policy (`UrlPolicy` port, link module)
 - **S-01 Scheme allowlist.** Accept only `http` and `https`, compared case-insensitively after trimming. Reject everything else.
-- **S-02 Host restrictions.** Reject `localhost` and its variants, and literal IPs in loopback, private (RFC 1918), link-local, CGNAT, unique-local IPv6 and unspecified ranges. Normalize alternate IP encodings (decimal, octal, hex, short forms) before checking. Hostnames are not DNS-resolved: the service never fetches targets, so DNS-based SSRF does not apply (documented trade-off).
+- **S-02 Host restrictions.** Reject `localhost` and its variants (`*.localhost`, `localhost.localdomain`), and literal IPs in blocked ranges. Normalize alternate IP encodings (decimal, octal, hex, short forms, as browsers parse them) before checking. Hostnames are not DNS-resolved: the service never fetches targets, so DNS-based SSRF does not apply (documented trade-off).
+  - IPv4: unspecified `0.0.0.0/8`, private `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, CGNAT `100.64.0.0/10`, loopback `127.0.0.0/8`, link-local `169.254.0.0/16`, benchmarking `198.18.0.0/15`, multicast `224.0.0.0/4`, broadcast `255.255.255.255`.
+  - IPv6: unspecified `::`, loopback `::1`, unique-local `fc00::/7`, link-local `fe80::/10`, site-local `fec0::/10`, multicast `ff00::/8`.
+  - IPv6 that carries an IPv4 address is checked against the IPv4 ranges: IPv4-mapped `::ffff:0:0/96`, IPv4-compatible `::/96`, NAT64 `64:ff9b::/96` and 6to4 `2002::/16`.
 - **S-03 No userinfo.** Reject URLs containing `user@` or `user:pass@`.
 - **S-04 No self-reference.** Reject targets whose host is the service's own public host.
 - **S-05 Well-formed only.** Parse with `java.net.URI`; reject control characters, whitespace, CR/LF, and URLs over 2,048 characters. Store the normalized form; internationalized hosts as punycode.

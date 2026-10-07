@@ -36,8 +36,8 @@ class LinkConfig {
     }
 
     @Bean
-    UrlPolicy urlPolicy() {
-        return new StandardUrlPolicy();
+    UrlPolicy urlPolicy(@Value("${url-shortener.public-base-url}") String publicBaseUrl) {
+        return new StandardUrlPolicy(publicBaseUrl);
     }
 
     @Bean

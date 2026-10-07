@@ -22,12 +22,12 @@ Each task is one commit, written test first, and ends with `./gradlew check` gre
   - Tests first: `KeyIssuanceIT`, `AuthenticationIT`, `LinkServiceTest`, `CreateLinkIT`, `RedirectServiceTest`, `RedirectIT`, `AuditAtomicityIT` (create), `AuditEventShapeIT`.
   - If T2 overruns, split at "keys and auth" / "create and redirect" and tell the engineer before continuing (plan §14).
 
-- [ ] **T3 Owner-scoped read and delete** (AC18–AC21, AC30 (delete))
+- [x] **T3 Owner-scoped read and delete** (AC18–AC21, AC30 (delete))
   - `GET` and `DELETE /api/links/{code}`; soft delete to `DELETED`; cross-owner access returns the same `404` as an unknown code and writes `ACCESS_DENIED`.
   - Default-deny `/api/**` (from Codex review 01-review-1): `POST /api/keys` admin, `/api/links/**` owner, any unclassified `/api` route denied even with a valid key.
   - Tests first: `LinkServiceTest` (get, delete), `ManageLinkIT` (byte-for-byte `404` comparison), `AuditAtomicityIT` (delete), `AuthenticationIT` (unclassified route denied).
 
-- [ ] **T4 URL policy** (AC12–AC17)
+- [x] **T4 URL policy** (AC12–AC17)
   - Complete S-01 to S-05 in `StandardUrlPolicy`: host ranges and IP encodings, userinfo, self-reference, malformed and too long, IDN to punycode.
   - Tests first: `StandardUrlPolicyTest` (a parameterized table per reason, plus punycode), `UrlRejectedIT`.
 
