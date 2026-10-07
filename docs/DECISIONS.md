@@ -21,6 +21,7 @@ Format: lightweight ADRs. A changed decision gets a new entry that supersedes th
 | D12 | Redis introduced in the brownfield scenario | Accepted |
 | D13 | Scope cuts for the time budget | Accepted |
 | D14 | Persistence with `JdbcClient`, not JPA | Accepted |
+| D15 | Scope trim for the time budget | Accepted |
 
 ---
 
@@ -104,3 +105,20 @@ Format: lightweight ADRs. A changed decision gets a new entry that supersedes th
 - **Decision:** Persistence adapters use Spring's `JdbcClient` with explicit, parameterized SQL. `spring-boot-starter-data-jpa` is replaced by `spring-boot-starter-jdbc`. Transactions go through a `UnitOfWork` port backed by `TransactionTemplate`.
 - **Alternatives:** Spring Data JPA (less SQL to write, but hides `ON CONFLICT` and update statements behind entity state, and adds an entity layer that must be kept out of the domain).
 - **Consequences:** SQL and transaction boundaries are visible in review. Row mapping is written by hand. AGENTS.md §7's "never expose JPA entities" still holds trivially. Later specs add persistence the same way unless a new decision supersedes this one.
+
+### D15 Scope trim for the time budget
+- **Context:** Decided 2026-10-07, after T1 and T2 were committed and before T3. The assignment targets 4–5 hours of effort. These cuts remove polish, test plumbing and review overhead only. No security control is removed.
+- **Decision:**
+
+| Cut | Why | What still covers it |
+|---|---|---|
+| Spec 01 T7 removed; its remaining work moves into T6 | One fewer task to commit, review and log | T6 carries ECS logs (AC38) and Swagger UI off by default (AC46) |
+| Audit mirror to the log stream (R25, AC39) moved to a follow-up | Needs a decorator, after-commit hooks and log-capture tests; the database table is the source of truth | `audit.audit_events` (S-10, S-11); AC33's WARN line when a rejection's audit write fails |
+| Log-level tests (R23, AC37) moved to a follow-up | Log-capture plumbing that verifies polish, not a control | Log hygiene still tested (AC40, S-12) |
+| ECS structured logs (AC38) use Spring Boot's built-in setting, with plain text in the `local` profile | No custom encoder or dependency | Structured JSON with `requestId` (S-12) |
+| T6 API check simplified: oasdiff compares the generated OpenAPI with the committed `api/openapi.yaml`; the `extractApiBaseline` task and `-PapiBaselineRef` are dropped | Git-baseline plumbing in Gradle for a single-developer repo | `ApiContractIT` fails `./gradlew check` on a breaking change (AC48), with one breaking-change test |
+| T5 database-outage `503` (AC42) checked manually through `scripts/smoke-test.sh`, not an integration test | A second Spring context with a dead datasource is slow and fiddly | Behaviour and the 2 s Hikari timeout unchanged; `ErrorResponsesIT` still covers the unexpected exception and `413` |
+| Codex review at two milestones instead of every commit: after T3 (T1–T3: auth, audit, access control) and after T6 (T4–T6: URL policy, hardening, packaging). Each later spec gets one review at its end | Each review round carries prompt, triage and log overhead | Engineer reviews every diff; gates run on every commit; S-21 and SECURITY.md §9 updated to match |
+
+- **Unchanged:** every security control in spec 01, append-only audit with same-transaction commits, log hygiene, request IDs, Swagger UI off by default, the 2 s database timeout, all other ACs and gates.
+- **Consequences:** No SIEM-ready audit line in the log stream; a SIEM reads audit from the database. Spec 01 L4 narrows: a rejection whose audit write fails leaves only the WARN line as evidence. Log levels follow R23 by convention but are not test-enforced. The API check compares against the committed file, so a breaking change committed together with an edited `api/openapi.yaml` is not caught by the build; engineer review of the contract diff covers it. The build no longer fails when the code adds an endpoint or field without updating `api/openapi.yaml`; breaking changes still fail the build. Mitigation: reviewers check that API changes update `api/openapi.yaml`. Follow-up: restore the exact-match drift check. A regression in the database-outage `503` is caught only when the smoke test runs. A defect in T1 or T2 may reach the T3 review before an agent flags it.

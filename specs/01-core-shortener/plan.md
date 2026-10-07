@@ -23,7 +23,7 @@ Key design choices:
 | `flyway/flyway` image as the one-shot step | Same app image in a migrate-only mode | No migrate mode to build or test; the app image never contains a code path that needs DDL credentials |
 | Bucket4j behind `RateLimiter` | Hand-written token bucket | Listed in D2; a Redis-backed adapter later (SECURITY.md §10) only swaps the adapter |
 | oasdiff in a Testcontainers container | Installed oasdiff binary | Docker is already required for tests; no extra local tool; pinned image version |
-| Generated OpenAPI checked against committed `api/openapi.yaml` (A11) | Serving the committed YAML as a static file | A drift check keeps code and contract in step; static serving could silently diverge from the controllers |
+| Generated OpenAPI checked against committed `api/openapi.yaml` (A11) | Serving the committed YAML as a static file | An oasdiff check of the generated document against the committed file keeps code and contract in step (D15); static serving could silently diverge from the controllers |
 | Distroless `java21-debian12:nonroot` runtime | `eclipse-temurin:21-jre-alpine` + `adduser` | No shell or package manager, non-root by default; nothing needs a container health check |
 | HMAC-SHA256 of the IP keyed by `IP_HASH_SALT` | Plain `SHA-256(salt + ip)` | Standard keyed construction; same cost |
 
@@ -39,7 +39,7 @@ io.github.harshmittal.urlshortener
 │   │              adapter/out/random/       SecureRandomKeyMaterialGenerator
 │   ├── audit/     domain/       AuditEvent, AuditAction, Outcome, AuditTrail, port: AuditSink
 │   │              adapter/out/persistence/  JdbcAuditSink
-│   │              adapter/out/log/          MirroringAuditSink (decorator, T7)
+│   │              adapter/out/log/          MirroringAuditSink (decorator; T7 removed by D15, now a follow-up)
 │   ├── ratelimit/ domain/       port: RateLimiter (RateLimitDecision)
 │   │              adapter/out/bucket4j/     Bucket4jRateLimiter
 │   ├── tx/        domain/       port: UnitOfWork;   adapter/out/spring/ TransactionTemplateUnitOfWork
@@ -64,7 +64,7 @@ io.github.harshmittal.urlshortener
 | `ApiKeyRepository` | shared.identity | `JdbcApiKeyRepository`, in-memory fake | `ApiKeyRepositoryContract` |
 | `KeyMaterialGenerator` | shared.identity | `SecureRandomKeyMaterialGenerator`, fixed fake | `KeyMaterialGeneratorContract` (format, length, uniqueness sample) |
 | `Authenticator` | shared.identity | `ApiKeyAuthenticator` (domain) | unit tests (it is the implementation) |
-| `AuditSink` | shared.audit | `JdbcAuditSink`, `MirroringAuditSink` (T7), in-memory fake, failing fake | `AuditSinkContract` |
+| `AuditSink` | shared.audit | `JdbcAuditSink`, `MirroringAuditSink` (T7 removed by D15, now a follow-up), in-memory fake, failing fake | `AuditSinkContract` |
 | `RateLimiter` | shared.ratelimit | `Bucket4jRateLimiter` (Clock-driven `TimeMeter`) | `RateLimiterContract` |
 | `UnitOfWork` | shared.tx | `TransactionTemplateUnitOfWork`, inline fake | `UnitOfWorkContract` (commit, rollback, requiresNew survives outer rollback) |
 | `IdGenerator` | shared.id | `RandomUuidGenerator`, sequential fake | none (trivial) |
@@ -436,7 +436,7 @@ Environment variables (documented in `.env.example`):
 | `POSTGRES_PASSWORD` | postgres | Superuser; dev-only placeholder |
 | `LINK_CREATE_LIMIT_PER_MINUTE` | app | Optional; default 60 (R15) |
 
-`application.yaml` sets `spring.flyway.enabled: false`, the management port `8081` with only `health,info` exposed, Swagger UI disabled (springdoc), and the Hikari timeout. The `local` profile enables Swagger UI (T7).
+`application.yaml` sets `spring.flyway.enabled: false`, the management port `8081` with only `health,info` exposed, Swagger UI disabled (springdoc), and the Hikari timeout. The `local` profile enables Swagger UI (moved from T7 to T6, D15).
 
 ## 10. Dependencies
 | Change | Why |
@@ -449,15 +449,13 @@ Environment variables (documented in `.env.example`):
 | Testcontainers `postgres:16-alpine` (replaces `postgres:latest`) and `tufin/oasdiff` image (pinned) | Match PostgreSQL 16; run oasdiff without a local binary |
 | Compose images: `postgres:16-alpine`, `flyway/flyway` (version matched to the Flyway in the Boot 4.1.1 BOM), `gcr.io/distroless/java21-debian12:nonroot` | R21, R33 |
 
-Boot 4.1 compatibility of springdoc, Spotless (on Gradle 9.7) and oasdiff is checked in the task that introduces each. If springdoc 3.x fails on Boot 4.1, the fallback is to serve the committed `api/openapi.yaml` as a static resource. That would drop the drift check, so I'll raise it with you before falling back.
+Boot 4.1 compatibility of springdoc, Spotless (on Gradle 9.7) and oasdiff is checked in the task that introduces each. If springdoc 3.x fails on Boot 4.1, the fallback is to serve the committed `api/openapi.yaml` as a static resource. That would drop the contract check, so I'll raise it with you before falling back.
 
 ## 11. Build gate (`./gradlew check`)
 - `test`: unit tests and ArchUnit; excludes JUnit tag `integration`. Fast, no Docker.
 - `integrationTest`: tag `integration`, Testcontainers (one shared Postgres 16 container per JVM).
 - `spotlessCheck`, `jacocoTestCoverageVerification` (80% line coverage on `**/domain/**`, merged unit and integration data).
-- API compatibility (T6). `ApiContractIT` fetches `/v3/api-docs.yaml` and runs oasdiff twice:
-  1. **Drift:** `oasdiff diff` of the committed `api/openapi.yaml` against the generated document must be empty. This forces the contract file to change together with the code.
-  2. **Breaking:** `oasdiff breaking --fail-on ERR` of the baseline at `HEAD` (extracted by the Gradle task `extractApiBaseline` via `git show HEAD:api/openapi.yaml`) against the working-copy `api/openapi.yaml`. It is skipped only while `HEAD` has no `api/openapi.yaml` (before T6's commit).
+- API compatibility (T6, D15). `ApiContractIT` fetches the generated `/v3/api-docs.yaml` and runs `oasdiff breaking --fail-on ERR` with the committed `api/openapi.yaml` as the base and the generated document as the revision. Any breaking change fails the build. One breaking-change test proves it: a fixture with a removed field must fail the check.
 - gitleaks and the dependency scan stay separate commands (S-14, D13).
 
 ArchUnit rules (`src/test/java/.../architecture/`):
@@ -488,11 +486,13 @@ U = unit with in-memory fakes, I = integration (Testcontainers), A = ArchUnit, M
 | AC32 | I | `AuditEventShapeIT`: every action, with columns asserted and checks for no key, URL or IP |
 | AC33 | I | `RejectionAuditFailureIT` with a failing sink: same status and body, no state change, WARN captured and free of secrets |
 | AC35, AC47 | M | `scripts/smoke-test.sh` (uses `docker compose`, `curl`, `psql` in the db container): checks users, Flyway history owner, app env without migration creds, non-root, read-only rootfs, create → redirect → delete |
+| AC42 (DB outage) | M | `scripts/smoke-test.sh` stops the db container and checks that `/api/**` and a redirect each return `503 service-unavailable` within about 3 seconds (2 second connection timeout plus margin), then restarts it (D15) |
 | AC36 | U | `RequiredEnvironmentCheckTest`: for each missing or malformed variable, the message names it and does not contain the value |
-| AC37–AC39 | I | `LoggingIT` with an output-capture extension: parses JSON lines, checks levels, ECS fields, `requestId`, the mirror line, and no mirror line on rollback |
+| AC37, AC39 | — | Removed by D15; follow-ups in the spec |
+| AC38 | I | `EcsLogFormatIT` with an output-capture extension: parses JSON lines, checks ECS fields and `requestId` (T6, D15) |
 | AC40 | I | `LogHygieneIT` runs the AC1/3/8/23/26 flows and asserts no key, URL, raw IP or body in captured output |
 | AC41 | I | `RequestIdIT`: valid, invalid (CRLF, too long) and missing IDs |
-| AC42 | I | `ErrorResponsesIT`: a forced unexpected exception, a DB outage (a separate context whose datasource points at a closed port) and a `413` |
+| AC42 | I | `ErrorResponsesIT`: a forced unexpected exception and a `413`. The DB outage is a manual check (above, D15) |
 | AC43, AC44 | I | `SecurityHeadersIT`, `BodyLimitIT` (exactly 8,192 bytes accepted; 8,193 rejected; chunked body rejected) |
 | AC45 | I | `ActuatorExposureIT` with a random management port |
 | AC46 | I | `OpenApiExposureIT` with the default and `local` profiles |
@@ -500,7 +500,7 @@ U = unit with in-memory fakes, I = integration (Testcontainers), A = ArchUnit, M
 
 Each security control has at least one negative test named `S-xx: ...` (S-01–S-08, S-10–S-12, S-15 via the smoke test, S-16, S-17, S-20).
 
-## 13. Tasks (7, for Gate 3)
+## 13. Tasks (7 at Gate 3; 6 after D15)
 Each task is one commit and ends with `./gradlew check` green and an AI log row.
 
 | # | Task | ACs | Core or polish |
@@ -509,18 +509,17 @@ Each task is one commit and ends with `./gradlew check` green and an AI log row.
 | T2 | **Vertical slice.** API keys (issuer, authenticator, filter, roles), `POST /api/keys`, `scripts/new-admin-key.sh`, `AuditTrail` with change and rejection paths, `POST /api/links` (generator, retries, `UrlPolicy` with the scheme rule only), `GET /{code}` | AC1–AC5, AC8–AC11, AC22–AC25, AC30 (create), AC32 | Core |
 | T3 | **Owner-scoped read and delete.** `GET` and `DELETE /api/links/{code}`, soft delete, `ACCESS_DENIED` | AC18–AC21, AC30 (delete) | Core |
 | T4 | **URL policy.** S-01 to S-05 in `StandardUrlPolicy` (host ranges and IP encodings, userinfo, self-reference, malformed and too long, IDN to punycode) | AC12–AC17 | Core |
-| T5 | **Abuse controls and hardening.** Rate limiter and interceptor; body limit; security headers; DB-outage `503`; rejection-audit failure; log hygiene; actuator port | AC26–AC29, AC33, AC40, AC42–AC45 | Core |
-| T6 | **Packaging and contract.** `RequiredEnvironmentCheck`; Dockerfile (distroless, non-root); Compose (users, one-shot Flyway, `read_only` and `tmpfs`); `.env.example`; springdoc; committed `api/openapi.yaml`; oasdiff drift and breaking checks; `scripts/smoke-test.sh` | AC35, AC36, AC47 (M), AC48 | Core |
-| T7 | **Polish.** ECS structured logs and R23 levels; `MirroringAuditSink` decorator with the `AUDIT` logger and after-commit mirroring; Swagger UI `local` profile | AC37–AC39, AC46 | Polish (can become a follow-up) |
+| T5 | **Abuse controls and hardening.** Rate limiter and interceptor; body limit; security headers; DB-outage `503` (checked manually, D15); rejection-audit failure; log hygiene; actuator port | AC26–AC29, AC33, AC40, AC42 (DB outage: M), AC43–AC45 | Core |
+| T6 | **Packaging and contract.** `RequiredEnvironmentCheck`; Dockerfile (distroless, non-root); Compose (users, one-shot Flyway, `read_only` and `tmpfs`); `.env.example`; springdoc; committed `api/openapi.yaml`; oasdiff breaking check against it; ECS logs and Swagger UI `local` profile (from T7, D15); `scripts/smoke-test.sh` with the DB-outage check | AC35, AC36, AC38, AC42 (DB outage: M), AC46, AC47 (M), AC48 | Core |
+| ~~T7~~ | **Removed by D15.** AC38 and AC46 moved to T6; AC37 and AC39 are follow-ups in the spec | — | — |
 
-The order follows dependencies: T2 needs T1's schema, T3 and T4 build on T2's create path, T5 needs all endpoints, and T6 freezes the contract once the endpoints exist. AC17 (punycode) sits in T4 so that S-05 is complete with the core tasks. If T7 is cut, spec 01 still meets every security control.
+The order follows dependencies: T2 needs T1's schema, T3 and T4 build on T2's create path, T5 needs all endpoints, and T6 freezes the contract once the endpoints exist. AC17 (punycode) sits in T4 so that S-05 is complete with the core tasks. T7 was removed by D15; spec 01 still meets every security control.
 
 ## 14. Risks and rollback
 | Risk | Mitigation |
 |---|---|
 | T1 and T2 are large for one commit each | T2 is a single vertical slice; if it overruns, split at "keys and auth" / "create and redirect" and tell the engineer before continuing |
 | springdoc or Spotless incompatible with Boot 4.1 or Gradle 9.7 | Checked first thing in the task that adds them; fallbacks in §10 |
-| oasdiff `HEAD` baseline misses a breaking change committed without running `check` | Documented limitation; CI or a pre-commit run should use `-PapiBaselineRef=main`. The property is supported from T6 |
 | Timing difference between cross-owner `404` (writes an audit row) and unknown-code `404` | Bodies are identical; the timing gap is one insert. Accepted; noted for review |
 | `.env.example` is covered by the agent deny rule `Read(./.env.*)` | The agent cannot read or edit it, and the deny rule stays (Gate 2). In T6 the engineer adds the variable list in §9 to `.env.example` |
 | Constant-time compare defeated by an early return on unknown prefix | Dummy-hash compare on miss (§6); unit test asserts the comparison always runs |

@@ -30,19 +30,19 @@ Each task is one commit, written test first, and ends with `./gradlew check` gre
   - Complete S-01 to S-05 in `StandardUrlPolicy`: host ranges and IP encodings, userinfo, self-reference, malformed and too long, IDN to punycode.
   - Tests first: `StandardUrlPolicyTest` (a parameterized table per reason, plus punycode), `UrlRejectedIT`.
 
-- [ ] **T5 Abuse controls and hardening** (AC26–AC29, AC33, AC40, AC42–AC45)
+- [ ] **T5 Abuse controls and hardening** (AC26–AC29, AC33, AC40, AC42 (DB outage: M), AC43–AC45)
   - `RateLimiter` port with `Bucket4jRateLimiter` (Clock-driven) and `CreationRateLimitInterceptor`. Check Bucket4j on Boot 4.1 first.
   - `RequestBodyLimitFilter` (8 KB, declared and streamed); security headers; database-outage `503` with a 2 s Hikari timeout; rejection-audit failure handling; log hygiene; actuator on the management port with `health` and `info` only.
-  - Tests first: `RateLimiterContract`, `CreationRateLimitIT`, `RejectionAuditFailureIT`, `LogHygieneIT`, `ErrorResponsesIT`, `SecurityHeadersIT`, `BodyLimitIT`, `ActuatorExposureIT`.
+  - The database-outage `503` is checked manually through `scripts/smoke-test.sh` (added in T6), not by an integration test (D15).
+  - Tests first: `RateLimiterContract`, `CreationRateLimitIT`, `RejectionAuditFailureIT`, `LogHygieneIT`, `ErrorResponsesIT` (unexpected exception and `413`), `SecurityHeadersIT`, `BodyLimitIT`, `ActuatorExposureIT`.
 
-- [ ] **T6 Packaging and contract** (AC35, AC36, AC47 (M), AC48)
+- [ ] **T6 Packaging and contract** (AC35, AC36, AC38, AC42 (DB outage: M), AC46, AC47 (M), AC48)
   - `RequiredEnvironmentCheck`; Dockerfile (distroless, non-root); Compose with the users init script, one-shot Flyway step, `read_only` and `tmpfs`.
-  - springdoc and the committed `api/openapi.yaml`; oasdiff drift and breaking checks with `extractApiBaseline` and `-PapiBaselineRef`. Check springdoc 3.x and the oasdiff image on Boot 4.1 first; raise any fallback with the engineer before using it (plan §10).
-  - `scripts/smoke-test.sh`.
+  - springdoc and the committed `api/openapi.yaml`. `ApiContractIT` compares the generated document (`/v3/api-docs.yaml`) with the committed `api/openapi.yaml` using oasdiff and fails on a breaking change (D15). Check springdoc 3.x and the oasdiff image on Boot 4.1 first; raise any fallback with the engineer before using it (plan §10).
+  - ECS structured logs through Spring Boot's built-in setting (`logging.structured.format.console: ecs`); plain text in the `local` profile (D15).
+  - Swagger UI off by default, enabled in the `local` profile (moved from T7, D15).
+  - `scripts/smoke-test.sh`, including the database-outage check moved from T5 (D15): stop the database container and check that the app returns `503 service-unavailable` within about 3 seconds (2 second connection timeout plus margin).
   - `.env.example`: the engineer adds the variables from plan §9. The agent deny rule stays.
-  - Tests first: `RequiredEnvironmentCheckTest`, `ApiContractIT` (with a breaking-change fixture).
+  - Tests first: `RequiredEnvironmentCheckTest`, `ApiContractIT` (one breaking-change test: a fixture with a removed field must fail the check), `EcsLogFormatIT`, `OpenApiExposureIT`.
 
-- [ ] **T7 Polish** (AC37–AC39, AC46)
-  - ECS structured logs and R23 levels; `MirroringAuditSink` decorator with the `AUDIT` logger and after-commit mirroring; Swagger UI in the `local` profile.
-  - Tests first: `LoggingIT`, `OpenApiExposureIT`.
-  - Can become a follow-up if time runs short. No security control depends on it.
+- ~~**T7 Polish**~~ **Removed (D15).** AC38 and AC46 moved to T6. The audit mirror (AC39) and log-level tests (AC37) are follow-ups in the spec.

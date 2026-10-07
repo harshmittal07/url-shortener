@@ -71,13 +71,13 @@ API clients need to turn long URLs into short codes and manage their own links. 
 - R22: `PUBLIC_BASE_URL`, `IP_HASH_SALT`, `BOOTSTRAP_ADMIN_KEY_HASH` and the database credentials shall come from environment variables. No default values exist in code. If any required variable is missing, the application shall refuse to start.
 
 ### Logging
-- R23: Log levels shall be:
+- R23 (deferred by D15, see Follow-ups): Log levels shall be the following. Levels follow this policy by convention but are not test-enforced.
   - **ERROR:** unexpected failures (any `5xx`);
   - **WARN:** security rejections and degradation (`AUTH_FAILED`, `ACCESS_DENIED`, `RATE_LIMITED`, `URL_REJECTED`, audit write failed);
   - **INFO:** state changes and startup;
   - **DEBUG:** off by default, and never carries sensitive data.
 - R24: Logs shall use Spring Boot's structured logging in ECS format, with `requestId` on every line written while serving a request.
-- R25: Every audit event shall also be written to the log stream as one structured line, with the same fields as the audit row and nothing sensitive. The database table remains the source of truth. A mirror line for a state change is written only after its transaction commits.
+- R25 (deferred by D15, see Follow-ups): Every audit event shall also be written to the log stream as one structured line, with the same fields as the audit row and nothing sensitive. The database table remains the source of truth. A mirror line for a state change is written only after its transaction commits.
 - R26: Logs shall never contain API keys, full target URLs, raw client IPs or request bodies. The short code, key ID and salted IP hash may be logged.
 
 ### Cross-cutting
@@ -200,7 +200,7 @@ URL policy `reason` values: `SCHEME_NOT_ALLOWED`, `HOST_NOT_ALLOWED`, `USERINFO_
 - AC36 (R22): Given any required variable is missing (`PUBLIC_BASE_URL`, `IP_HASH_SALT`, `BOOTSTRAP_ADMIN_KEY_HASH` or a database credential), when the application starts, then startup fails with a clear message naming the missing variable (never its value).
 
 ### Logging
-- AC37 (R23): Given these flows, when logs are captured, then each is logged at the stated level, and no DEBUG lines appear with the default configuration:
+- AC37 (R23) (deferred by D15): Given these flows, when logs are captured, then each is logged at the stated level, and no DEBUG lines appear with the default configuration:
 
   | Flow | Level |
   |---|---|
@@ -208,7 +208,7 @@ URL policy `reason` values: `SCHEME_NOT_ALLOWED`, `HOST_NOT_ALLOWED`, `USERINFO_
   | Auth failure, access denied, rate limit, URL rejection, audit write failure | WARN |
   | Link created, link deleted, key created, startup | INFO |
 - AC38 (R24): Given any log line written while serving a request, when it is parsed, then it is valid ECS JSON (`@timestamp`, `log.level`, `message` and so on) and includes `requestId`.
-- AC39 (R25): Given each audited action, when logs are captured, then one structured line carries the same fields as the audit row. Given a state change whose transaction rolls back, then no mirror line is written for it.
+- AC39 (R25) (deferred by D15): Given each audited action, when logs are captured, then one structured line carries the same fields as the audit row. Given a state change whose transaction rolls back, then no mirror line is written for it.
 - AC40 (R26, S-12): Given the flows in AC1, AC3, AC8, AC23 and AC26, when log output is captured, then it contains no API key, full target URL, raw client IP or request body.
 
 ### Cross-cutting
@@ -244,7 +244,7 @@ URL policy `reason` values: `SCHEME_NOT_ALLOWED`, `HOST_NOT_ALLOWED`, `USERINFO_
 - **Determinism:** time comes from an injected `Clock` and randomness from `ShortCodeGenerator`.
 - **Performance:** a successful redirect is one read through `LinkLookup` with no writes.
 - **Compatibility:** the API is versionless. The committed `api/openapi.yaml` is the baseline from this spec onward (D6).
-- **Observability:** ECS structured logs with `requestId`, the levels in R23, and audit events mirrored to the log stream (R25). Only the short code, key ID and salted IP hash are logged.
+- **Observability:** ECS structured logs with `requestId` and the levels in R23 (by convention, not test-enforced); audit mirroring deferred (D15). Only the short code, key ID and salted IP hash are logged.
 - **Testability:**
   - Domain logic is covered by unit tests with in-memory port fakes.
   - Integration tests run on Testcontainers Postgres.
@@ -255,7 +255,7 @@ URL policy `reason` values: `SCHEME_NOT_ALLOWED`, `HOST_NOT_ALLOWED`, `USERINFO_
 - **L1 `AUTH_FAILED` audit volume.** Each request with a bad or missing key writes an audit row, and no limit applies before authentication. An unauthenticated caller can inflate audit writes and table size. The per-IP limit in spec 02 closes this, so that limit must cover unauthenticated `/api/**` requests as well as redirects.
 - **L2 Client IP behind Docker networking.** Behind Docker's port publishing or NAT, the socket's remote address may be the same for every client. In spec 01 this makes `client_ip_hash` in audit rows less useful. For spec 02, a per-IP limit would throttle all clients as one. Closing this needs the trusted-proxy follow-up.
 - **L3 In-memory rate limiter.** Limits are per instance (SECURITY.md §10).
-- **L4 Rejection evidence when the audit write fails.** Under R20 a rejection whose audit write fails is recorded only in the log stream: the R25 mirror line plus the WARN line. The database has no row for it.
+- **L4 Rejection evidence when the audit write fails.** Under R20 a rejection whose audit write fails is recorded only in the log stream. Until the audit mirror follow-up lands (D15), the evidence is only the WARN line; after it lands, the R25 mirror line is added. The database has no row for it.
 - **L5 Code enumeration before spec 02.** Redirects have no per-IP rate limit until spec 02, so enumeration (T6) is limited only by the size of the code space (62⁷ ≈ 3.5 × 10¹²).
 
 ## Deviations from current docs
@@ -297,7 +297,7 @@ Your answers settled these: key issuance, unknown vs deleted codes, soft delete,
   - It is served unauthenticated at springdoc's default path (`/v3/api-docs`), outside `/api/**`.
   - It describes the public contract, which isn't secret.
   - The plan decides whether to serve the committed `api/openapi.yaml` or a generated document checked against it.
-- A12 **Audit mirror lines.** They use a dedicated logger name (for example `AUDIT`) so a SIEM can filter them, at the level R23 assigns: INFO for state changes, WARN for rejections.
+- A12 **Audit mirror lines** (applies when the audit mirror follow-up is built). They use a dedicated logger name (for example `AUDIT`) so a SIEM can filter them, at the level R23 assigns: INFO for state changes, WARN for rejections.
 - A13 **Audit values and the 401 challenge (confirmed after T2).**
   - Audit `outcome` is `SUCCESS` for state changes and `REJECTED` for rejections.
   - `AUTH_FAILED` reason codes are `MISSING`, `MALFORMED`, `UNKNOWN` and `REVOKED`. `ACCESS_DENIED` for a wrong role uses `WRONG_ROLE`.
@@ -312,3 +312,6 @@ Your answers settled these: key issuance, unknown vs deleted codes, soft delete,
 - Prometheus metrics endpoint.
 - Key revocation endpoint (A2).
 - Hash-chained audit rows for tamper evidence (S-11 stretch).
+- **Audit mirror to the log stream** (R25, AC39, A12), cut by D15. A `MirroringAuditSink` decorator writing one `AUDIT` logger line per event, after commit for state changes. Until then a SIEM reads audit from the database, and L4's evidence is only the WARN line.
+- **Log-level tests** (R23, AC37), cut by D15. Levels follow R23 by convention but are not test-enforced.
+- **Exact-match OpenAPI drift check** (R34, AC48), cut by D15. Restore an `oasdiff diff` check that fails when the generated document and the committed `api/openapi.yaml` differ at all. Until then the build fails only on breaking changes, and reviewers check that API changes update `api/openapi.yaml`.

@@ -79,7 +79,7 @@ Security response headers on all API responses: `X-Content-Type-Options: nosniff
   - Agents are denied read access to `.env` files and secrets (`.claude/settings.json` deny rules; reviewer agent runs read-only).
   - Requirements are given to agents in the engineer's own words; internal source documents are not pasted into external tools.
   - No generated code is committed without engineer review of the diff; high-impact areas (AGENTS.md §13) need an approved plan first.
-  - A second agent reviews each commit against this file; findings and decisions are recorded in `docs/AI_LOG.md`.
+  - A second agent reviews at milestones against this file: after T3, after T6, and after each later spec (D15); findings and decisions are recorded in `docs/AI_LOG.md`.
   - Generated code passes the same gates as human code: tests, ArchUnit, static analysis, dependency and secret scans.
   - Residual risk: path deny rules do not cover shell commands the engineer approves. Mitigations: no real secrets in the project folder, every shell command reviewed before approval, reviewer agent read-only by instruction (Codex in IDE; a sandboxed CLI is the stronger option).
 
@@ -93,7 +93,7 @@ Security response headers on all API responses: `X-Content-Type-Options: nosniff
 | Static analysis | Checkstyle, SpotBugs | Deferred (D13) |
 | Dependencies | OWASP Dependency-Check | Manual pre-release gate, before submission (D13) |
 | Secrets | gitleaks | Before each commit, and before submission |
-| Human review | Engineer review of every diff; second-agent review of every commit | Every task |
+| Human review | Engineer review of every diff; second-agent review at milestones: after T3, after T6, and after each later spec (D15) | Every task (engineer); milestones (agent) |
 
 ## 10. Out of scope and residual risks
 | Item | Reason | Path forward |
