@@ -1,0 +1,75 @@
+# docker compose up --build (R33). Copy .env.example to .env first; every variable is listed there.
+# Startup order (plan §7): db (initdb creates both users) -> migrate (one-shot Flyway as the
+# migration user) -> app (application user only) (R21, A10).
+name: url-shortener
+
+x-database-url: &database-url jdbc:postgresql://db:5432/urlshortener
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: urlshortener
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      # Read once by docker/postgres/initdb/01-users.sh to create the two users.
+      DB_MIGRATION_USER: ${DB_MIGRATION_USER:?set DB_MIGRATION_USER in .env}
+      DB_MIGRATION_PASSWORD: ${DB_MIGRATION_PASSWORD:?set DB_MIGRATION_PASSWORD in .env}
+      DB_APP_USER: ${DB_APP_USER:?set DB_APP_USER in .env}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?set DB_APP_PASSWORD in .env}
+    volumes:
+      - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d urlshortener"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    # No published port: the database is reachable only from the Compose network.
+
+  migrate:
+    image: flyway/flyway:12.4.0-alpine # Flyway version from the Spring Boot 4.1.1 BOM
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      FLYWAY_URL: *database-url
+      FLYWAY_USER: ${DB_MIGRATION_USER:?set DB_MIGRATION_USER in .env}
+      FLYWAY_PASSWORD: ${DB_MIGRATION_PASSWORD:?set DB_MIGRATION_PASSWORD in .env}
+      FLYWAY_SCHEMAS: flyway,identity,link,audit
+      FLYWAY_DEFAULT_SCHEMA: flyway
+      FLYWAY_CREATE_SCHEMAS: "true"
+      FLYWAY_LOCATIONS: filesystem:/flyway/sql
+    # The placeholder is passed on the command line, which keeps the camel-case name V1-V3 use.
+    command: ["-placeholders.appUser=${DB_APP_USER:?set DB_APP_USER in .env}", "migrate"]
+    volumes:
+      - ./src/main/resources/db/migration:/flyway/sql:ro
+    restart: "no"
+
+  app:
+    build: .
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    # Only the application user's credentials; never the migration user's (R21, AC35).
+    environment:
+      SPRING_DATASOURCE_URL: *database-url
+      DB_APP_USER: ${DB_APP_USER:?set DB_APP_USER in .env}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?set DB_APP_PASSWORD in .env}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?set PUBLIC_BASE_URL in .env}
+      IP_HASH_SALT: ${IP_HASH_SALT:?set IP_HASH_SALT in .env}
+      BOOTSTRAP_ADMIN_KEY_HASH: ${BOOTSTRAP_ADMIN_KEY_HASH:?set BOOTSTRAP_ADMIN_KEY_HASH in .env}
+      # Optional (R15). Unset or empty falls back to 60, the application's default, rather than "".
+      LINK_CREATE_LIMIT_PER_MINUTE: ${LINK_CREATE_LIMIT_PER_MINUTE:-60}
+    ports:
+      - "8080:8080"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  db-data:

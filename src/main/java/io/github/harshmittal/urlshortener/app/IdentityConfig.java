@@ -12,7 +12,6 @@ import io.github.harshmittal.urlshortener.shared.identity.domain.Authenticator;
 import io.github.harshmittal.urlshortener.shared.tx.domain.UnitOfWork;
 import io.github.harshmittal.urlshortener.shared.web.RequestAuditContexts;
 import java.time.Clock;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -27,9 +26,8 @@ class IdentityConfig {
     }
 
     @Bean
-    Authenticator authenticator(
-            ApiKeyRepository keys, @Value("${url-shortener.bootstrap-admin-key-hash}") String adminKeyHash) {
-        return new ApiKeyAuthenticator(keys, adminKeyHash);
+    Authenticator authenticator(ApiKeyRepository keys, RequiredEnvironmentCheck.Settings settings) {
+        return new ApiKeyAuthenticator(keys, settings.bootstrapAdminKeyHash());
     }
 
     @Bean

@@ -38,8 +38,8 @@ class LinkConfig {
     }
 
     @Bean
-    UrlPolicy urlPolicy(@Value("${url-shortener.public-base-url}") String publicBaseUrl) {
-        return new StandardUrlPolicy(publicBaseUrl);
+    UrlPolicy urlPolicy(RequiredEnvironmentCheck.Settings settings) {
+        return new StandardUrlPolicy(settings.publicBaseUrl());
     }
 
     @Bean
@@ -61,10 +61,8 @@ class LinkConfig {
 
     @Bean
     LinkController linkController(
-            LinkService links,
-            RequestAuditContexts auditContexts,
-            @Value("${url-shortener.public-base-url}") String publicBaseUrl) {
-        return new LinkController(links, auditContexts, publicBaseUrl);
+            LinkService links, RequestAuditContexts auditContexts, RequiredEnvironmentCheck.Settings settings) {
+        return new LinkController(links, auditContexts, settings.publicBaseUrl());
     }
 
     /** Per-key creation limit (R15); {@code LINK_CREATE_LIMIT_PER_MINUTE}, default 60. */

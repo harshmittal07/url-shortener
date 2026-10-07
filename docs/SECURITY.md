@@ -31,7 +31,7 @@ Security is proportionate to the threat model below. Controls not justified by a
 | T10 | Tampering with or deleting audit records | Loss of accountability | S-10, S-11 | Implemented (`AuditAtomicityIT`, `AuditEventShapeIT`, `DatabasePrivilegesIT`) |
 | T11 | Sensitive data in logs (keys, tokens in URLs, raw IPs) | Data leak | S-12 | Implemented (`LogHygieneIT`) |
 | T12 | Vulnerable dependencies or leaked secrets in repo | Compromise | S-13, S-14 | Planned (spec 01) |
-| T13 | Container breakout / excess privileges | Host compromise | S-15 | Planned (spec 01) |
+| T13 | Container breakout / excess privileges | Host compromise | S-15 | Implemented (`scripts/smoke-test.sh`) |
 | T14 | Information leakage in errors / actuator | Recon for attackers | S-16, S-17 | S-16 implemented (`ErrorResponsesIT`, `SharedExceptionHandlerTest`; real DB outage checked by the T6 smoke test, D15); S-17 implemented (`ActuatorExposureIT`) |
 | T15 | Personal data in click analytics | Privacy and compliance exposure | S-18 | Spec 03 |
 | T16 | Stale cache serving deleted or disabled links | Takedown ineffective | S-19 | Spec 02 |
@@ -67,8 +67,8 @@ Update Status to `Implemented (<test name>)` as controls land.
 ## 7. Controls — data handling, supply chain, runtime and architecture
 - **S-12 Log hygiene.** Structured JSON with `requestId`. Never log API keys, full target URLs, raw client IPs or request bodies. Log short code, key ID and a salted IP hash.
 - **S-13 Dependency scanning.** OWASP Dependency-Check runs as a manual pre-release gate (D13) and blocks submission on CVSS ≥ 7 unless a suppression records a justification and an expiry date.
-- **S-14 Secret scanning.** gitleaks before each commit and before submission. Secrets only from environment variables; only `.env.example` is committed; dev credentials in `docker-compose.yml` are marked dev-only.
-- **S-15 Container hardening.** Minimal JRE base image, non-root user, read-only root filesystem where possible.
+- **S-14 Secret scanning.** gitleaks before each commit and before submission. Secrets only from environment variables; only `.env.example` is committed, with placeholders; `compose.yaml` holds no credentials and reads every secret from `.env`.
+- **S-15 Container hardening.** Minimal JRE base image, non-root user, read-only root filesystem where possible. Implemented (`scripts/smoke-test.sh`): distroless Java 21 `nonroot`, read-only root filesystem with a tmpfs `/tmp`, all capabilities dropped, `no-new-privileges`.
 - **S-16 Safe errors.** RFC 9457 problem details with stable error codes; no stack traces, SQL or class names in responses.
 - **S-17 Actuator exposure.** Only `health` and `info`, on a separate management port not exposed publicly. A `prometheus` endpoint is a follow-up.
 - **S-18 Analytics privacy (spec 03).** No raw IPs stored. Retention, bot handling and stats visibility are decided in spec 03.
@@ -85,6 +85,7 @@ Security response headers on all API responses: `X-Content-Type-Options: nosniff
   - A second agent reviews at milestones against this file: after T3, after T6, and after each later spec (D15); findings and decisions are recorded in `docs/AI_LOG.md`.
   - Generated code passes the same gates as human code: tests, ArchUnit, static analysis, dependency and secret scans.
   - Residual risk: path deny rules do not cover shell commands the engineer approves. Mitigations: no real secrets in the project folder, every shell command reviewed before approval, reviewer agent read-only by instruction (Codex in IDE; a sandboxed CLI is the stronger option).
+  - Observed in T6: a gitleaks scan of the working folder, run as an approved shell command, opened .env (findings redacted). Mitigation: scan only tracked files and src; never scan the working folder.
 
 ## 9. Verification
 | Gate | How | When |

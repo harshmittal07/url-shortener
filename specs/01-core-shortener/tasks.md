@@ -37,7 +37,7 @@ Each task is one commit, written test first, and ends with `./gradlew check` gre
   - The database-outage `503` is checked manually through `scripts/smoke-test.sh` (added in T6), not by an integration test (D15).
   - Tests first: `RateLimiterContract`, `CreationRateLimitIT`, `RejectionAuditFailureIT`, `LogHygieneIT`, `ErrorResponsesIT` (unexpected exception and `413`), `SecurityHeadersIT`, `BodyLimitIT`, `ActuatorExposureIT`.
 
-- [ ] **T6 Packaging and contract** (AC35, AC36, AC38, AC42 (DB outage: M), AC46, AC47 (M), AC48)
+- [x] **T6 Packaging and contract** (AC35, AC36, AC38, AC42 (DB outage: M), AC46, AC47 (M), AC48)
   - `RequiredEnvironmentCheck`; Dockerfile (distroless, non-root); Compose with the users init script, one-shot Flyway step, `read_only` and `tmpfs`.
   - springdoc and the committed `api/openapi.yaml`. `ApiContractIT` compares the generated document (`/v3/api-docs.yaml`) with the committed `api/openapi.yaml` using oasdiff and fails on a breaking change (D15). Check springdoc 3.x and the oasdiff image on Boot 4.1 first; raise any fallback with the engineer before using it (plan §10).
   - ECS structured logs through Spring Boot's built-in setting (`logging.structured.format.console: ecs`); plain text in the `local` profile (D15).

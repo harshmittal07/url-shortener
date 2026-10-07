@@ -9,6 +9,9 @@ import org.springframework.http.ProblemDetail;
 /** Builds RFC 9457 bodies with a stable {@code code} and the {@code requestId} (R28). */
 public final class ProblemDetails {
 
+    /** The OpenAPI response every error refers to; defined once in the composition root. */
+    public static final String OPENAPI_RESPONSE = "#/components/responses/Problem";
+
     private static final String TYPE_PREFIX = "urn:url-shortener:problem:";
 
     private ProblemDetails() {}

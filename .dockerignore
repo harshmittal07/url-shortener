@@ -1,0 +1,7 @@
+# Only the Gradle build inputs go into the image build context. Secrets never do.
+*
+!gradlew
+!gradle/
+!settings.gradle.kts
+!build.gradle.kts
+!src/main/

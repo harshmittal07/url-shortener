@@ -9,6 +9,10 @@ spring:
     default-schema: flyway
     create-schemas: true
   datasource:
+    # The application user only (R21). Docker Compose sets the URL; RequiredEnvironmentCheck stops
+    # startup if either credential is missing (R22).
+    username: ${DB_APP_USER}
+    password: ${DB_APP_PASSWORD}
     hikari:
       # Fail fast when the database is down: requests answer 503 within about 2 s (plan §8, AC42).
       connection-timeout: 2000
@@ -23,10 +27,21 @@ management:
       exposure:
         include: health,info
 
-# Required environment variables (R22). No defaults: startup fails if any is missing.
+# ECS JSON on the console, with MDC (requestId) as fields (R24). The local profile switches to text.
+logging:
+  structured:
+    format:
+      console: ecs
+
+# The OpenAPI document is public at /v3/api-docs (A11); Swagger UI only in the local profile (R32).
+springdoc:
+  # Stable key order, so the generated document diffs cleanly against api/openapi.yaml.
+  writer-with-order-by-keys: true
+  swagger-ui:
+    enabled: false
+
+# PUBLIC_BASE_URL, IP_HASH_SALT and BOOTSTRAP_ADMIN_KEY_HASH are read and verified by
+# RequiredEnvironmentCheck (R22). No defaults: startup fails if any is missing or malformed.
 url-shortener:
-  public-base-url: ${PUBLIC_BASE_URL}
-  ip-hash-salt: ${IP_HASH_SALT}
-  bootstrap-admin-key-hash: ${BOOTSTRAP_ADMIN_KEY_HASH}
   # Optional (R15).
   link-create-limit-per-minute: ${LINK_CREATE_LIMIT_PER_MINUTE:60}

@@ -11,7 +11,6 @@ import io.github.harshmittal.urlshortener.shared.web.SharedExceptionHandler;
 import jakarta.servlet.DispatcherType;
 import java.time.Clock;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -62,8 +61,8 @@ class SharedWebConfig {
     }
 
     @Bean
-    RequestAuditContexts requestAuditContexts(@Value("${url-shortener.ip-hash-salt}") String ipHashSalt) {
-        return new RequestAuditContexts(new ClientIpHasher(ipHashSalt));
+    RequestAuditContexts requestAuditContexts(RequiredEnvironmentCheck.Settings settings) {
+        return new RequestAuditContexts(new ClientIpHasher(settings.ipHashSalt()));
     }
 
     @Bean

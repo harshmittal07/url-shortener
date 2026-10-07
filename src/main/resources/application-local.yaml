@@ -1,0 +1,9 @@
+# Local development only: plain-text logs and Swagger UI (R24, R32, D15). Never set in Compose.
+logging:
+  structured:
+    format:
+      console: ""
+
+springdoc:
+  swagger-ui:
+    enabled: true

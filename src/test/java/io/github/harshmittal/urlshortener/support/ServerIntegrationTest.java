@@ -11,6 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.ContextConfiguration;
 
 /**
  * Like {@link IntegrationTest}, but on a real embedded server with random public and management
@@ -26,5 +27,6 @@ import org.springframework.test.context.ActiveProfiles;
         properties = "management.server.port=0")
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
+@ContextConfiguration(initializers = GeneratedRequiredVariables.class)
 @ActiveProfiles("integration")
 public @interface ServerIntegrationTest {}

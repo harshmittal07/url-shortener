@@ -291,6 +291,7 @@ Your answers settled these: key issuance, unknown vs deleted codes, soft delete,
 - A5 **Valid `X-Request-Id`.** 1–64 characters of `[A-Za-z0-9._-]`. Anything else is replaced with a generated ID, which prevents log injection.
 - A6 **Client IP for audit hashing.** `client_ip_hash` is computed from the socket's remote address, salted with `IP_HASH_SALT`. `X-Forwarded-For` is ignored, because trusting it by default lets callers choose their own IP. See L2.
 - A7 **Owner sees `status`.** `GET /api/links/{code}` returns `status`, which is always `ACTIVE` in spec 01. Including it now makes spec 02's `DISABLED` an additive change.
+  - The contract declares `status` as an `x-extensible-enum` (currently `ACTIVE`), not an `enum`, so adding a value is not a breaking change (decided after T6). Clients must tolerate unknown `status` values (D6 tolerant readers).
 - A8 **No click events.** The `EventPublisher` port and click events arrive with spec 03, which adds the consumer.
 - A9 **`POST /api/keys` takes no body.** Labels and metadata on keys are out of scope.
 - A11 **OpenAPI document.**

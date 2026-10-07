@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Tag;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.ContextConfiguration;
 
 /** Full application context on Testcontainers Postgres. Runs in the {@code integrationTest} task. */
 @Target(ElementType.TYPE)
@@ -16,5 +17,6 @@ import org.springframework.test.context.ActiveProfiles;
 @Tag("integration")
 @SpringBootTest(classes = UrlShortenerApplication.class)
 @Import(TestcontainersConfiguration.class)
+@ContextConfiguration(initializers = GeneratedRequiredVariables.class)
 @ActiveProfiles("integration")
 public @interface IntegrationTest {}
