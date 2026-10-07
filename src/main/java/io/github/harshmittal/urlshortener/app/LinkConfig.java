@@ -65,7 +65,7 @@ class LinkConfig {
         return new LinkController(links, auditContexts, settings.publicBaseUrl());
     }
 
-    /** Per-key creation limit (R15); {@code LINK_CREATE_LIMIT_PER_MINUTE}, default 60. */
+    /** Per-key creation limit (R15); {@code LINK_CREATE_LIMIT_PER_MINUTE}, default 30 (D16). */
     @Bean
     CreationRateLimitInterceptor creationRateLimitInterceptor(
             AuditTrail audit,

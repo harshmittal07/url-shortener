@@ -24,17 +24,17 @@ Security is proportionate to the threat model below. Controls not justified by a
 | T3 | Phishing disguised with userinfo (`https://bank.com@evil.com`) | Users misled about destination | S-03 | Implemented (`StandardUrlPolicyTest`, `UrlRejectedIT`) |
 | T4 | Redirect loops via own domain | Resource exhaustion, broken links | S-04 | Implemented (`StandardUrlPolicyTest`, `UrlRejectedIT`) |
 | T5 | Header injection through crafted target URL | Response splitting | S-05 | Implemented (`StandardUrlPolicyTest`, `UrlRejectedIT`) |
-| T6 | Enumerating short codes | Discovery of private links | S-06 | Implemented (`ShortCodeGeneratorContract`, `CodeCollisionIT`); per-IP redirect limit in spec 02 |
+| T6 | Enumerating short codes | Discovery of private links | S-06 | Implemented (`ShortCodeGeneratorContract`, `CodeCollisionIT`); per-IP redirect limit is a follow-up (D16) |
 | T7 | Unauthorized delete or modify of another owner's link | Integrity loss | S-07, S-08 | Implemented (`AuthenticationIT`, `ManageLinkIT`) |
 | T8 | API key theft from DB, logs or responses | Account takeover | S-07, S-12 | S-07 implemented (`KeyIssuanceIT`, `ApiKeyAuthenticatorTest`); S-12 implemented (`LogHygieneIT`) |
-| T9 | Abuse at volume (spam creation, redirect flooding) | Cost, reputation, availability | S-09 | Creation limit implemented (`CreationRateLimitIT`); per-IP planned (spec 02) |
+| T9 | Abuse at volume (spam creation, redirect flooding) | Cost, reputation, availability | S-09 | Per-minute creation limit implemented (`CreationRateLimitIT`); daily link quota planned (spec 02); per-IP is a follow-up (D16) |
 | T10 | Tampering with or deleting audit records | Loss of accountability | S-10, S-11 | Implemented (`AuditAtomicityIT`, `AuditEventShapeIT`, `DatabasePrivilegesIT`) |
 | T11 | Sensitive data in logs (keys, tokens in URLs, raw IPs) | Data leak | S-12 | Implemented (`LogHygieneIT`) |
 | T12 | Vulnerable dependencies or leaked secrets in repo | Compromise | S-13, S-14 | Planned (spec 01) |
 | T13 | Container breakout / excess privileges | Host compromise | S-15 | Implemented (`scripts/smoke-test.sh`) |
 | T14 | Information leakage in errors / actuator | Recon for attackers | S-16, S-17 | S-16 implemented (`ErrorResponsesIT`, `SharedExceptionHandlerTest`; real DB outage checked by the T6 smoke test, D15); S-17 implemented (`ActuatorExposureIT`) |
-| T15 | Personal data in click analytics | Privacy and compliance exposure | S-18 | Spec 03 |
-| T16 | Stale cache serving deleted or disabled links | Takedown ineffective | S-19 | Spec 02 |
+| T15 | Personal data in click analytics | Privacy and compliance exposure | S-18 | Follow-up with click analytics (D16) |
+| T16 | Stale cache serving deleted or disabled links | Takedown ineffective | S-19 | Follow-up with the Redis cache and takedown (D16) |
 | T17 | Module boundary bypass (one module reading another's tables) | Hidden coupling; controls bypassed at extraction | S-20 | Implemented (`ArchitectureTest`, `SchemaIT`) |
 | T18 | Unsafe AI-assisted development (secrets exposed to agents, unreviewed generated code, insecure suggestions) | Leaked secrets; vulnerable code shipped | S-21 | Active from kickoff |
 
@@ -54,7 +54,7 @@ Update Status to `Implemented (<test name>)` as controls land.
 - **S-06 Unguessable codes.** `SecureRandom` Base62, length 7 (~3.5 × 10¹²). Uniqueness via DB constraint with up to 3 retries. If custom aliases are added later, reserved words (`api`, `actuator`, `health`, `docs`, …) are blocked.
 - **S-07 API key handling.** 256 bits of randomness with a public key-ID prefix for lookup. Only a SHA-256 hash is stored (safe for high-entropy keys, unlike human passwords). Constant-time comparison. Shown once at creation, never again. Revocable.
 - **S-08 Owner scoping and default-deny authorization.** Management endpoints act only on links owned by the calling key. Cross-owner access returns `404`. Every `/api` route needs an explicit role; anything unlisted is denied, even with a valid key.
-- **S-09 Rate limiting.** Per API key for link creation (spec 01). Per client IP for redirects and unauthenticated `/api/**` requests (spec 02); this needs trusted-proxy configuration to see real client IPs behind Docker or a load balancer. Bucket4j. Exceeding returns `429` with `Retry-After` and writes an audit event. Limitation: in-memory buckets are per instance (§10).
+- **S-09 Rate limiting.** Per API key for link creation: a per-minute limit, default 30 (spec 01, D16), and a daily link quota, default 500 per day (spec 02, D16). Per client IP for redirects and unauthenticated `/api/**` requests is a follow-up (D16); it needs trusted-proxy configuration to see real client IPs behind Docker or a load balancer. Bucket4j. Exceeding returns `429` with `Retry-After` and writes an audit event. Limitation: in-memory buckets are per instance (§10).
 
 ## 6. Controls — audit (shared kernel)
 - **S-10 Audit events.** One row per event in `audit.audit_events`:
@@ -71,8 +71,8 @@ Update Status to `Implemented (<test name>)` as controls land.
 - **S-15 Container hardening.** Minimal JRE base image, non-root user, read-only root filesystem where possible. Implemented (`scripts/smoke-test.sh`): distroless Java 21 `nonroot`, read-only root filesystem with a tmpfs `/tmp`, all capabilities dropped, `no-new-privileges`.
 - **S-16 Safe errors.** RFC 9457 problem details with stable error codes; no stack traces, SQL or class names in responses.
 - **S-17 Actuator exposure.** Only `health` and `info`, on a separate management port not exposed publicly. A `prometheus` endpoint is a follow-up.
-- **S-18 Analytics privacy (spec 03).** No raw IPs stored. Retention, bot handling and stats visibility are decided in spec 03.
-- **S-19 Cache consistency (spec 02).** Delete and disable evict the cache entry; TTL as backstop. Redis unavailable → read the database (fail open on cache, never on auth or policy).
+- **S-18 Analytics privacy (follow-up, D16).** No raw IPs stored. Retention, bot handling and stats visibility are decided in the click-analytics spec.
+- **S-19 Cache consistency (follow-up, D16).** Delete and disable evict the cache entry; TTL as backstop. Redis unavailable → read the database (fail open on cache, never on auth or policy).
 - **S-20 Module isolation.** Each module owns its Postgres schema; ArchUnit forbids access to another module's `domain`, `adapter` or persistence classes. In the monolith one DB role serves all modules; per-module DB roles arrive when a module is extracted (§10).
 
 Security response headers on all API responses: `X-Content-Type-Options: nosniff`, `Cache-Control: no-store`, `Referrer-Policy: no-referrer`. HSTS is set at the TLS terminator.
@@ -111,4 +111,4 @@ Security response headers on all API responses: `X-Content-Type-Options: nosniff
 | Distributed rate limiting | Single instance in prototype | Redis-backed Bucket4j |
 | DNS rebinding / resolved-IP checks | Service never fetches targets | Revisit if link previews are added |
 
-Residual risk accepted: a public phishing URL that passes policy can be shortened. Future mitigation, landing in spec 02: takedown via `LINK_DISABLED`, which is audited and evicts the cache. Until spec 02, a malicious link can only be removed by its owner deleting it.
+Residual risk accepted: a public phishing URL that passes policy can be shortened. Future mitigation, deferred to a follow-up by D16: takedown via `LINK_DISABLED`, which is audited and evicts the cache. Until then, a malicious link can only be removed by its owner deleting it.

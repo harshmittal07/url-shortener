@@ -434,7 +434,7 @@ Environment variables (documented in `.env.example`):
 | `DB_APP_USER`, `DB_APP_PASSWORD` | app, postgres init | Required |
 | `DB_MIGRATION_USER`, `DB_MIGRATION_PASSWORD` | migrate, postgres init | Never passed to `app` |
 | `POSTGRES_PASSWORD` | postgres | Superuser; dev-only placeholder |
-| `LINK_CREATE_LIMIT_PER_MINUTE` | app | Optional; default 60 (R15) |
+| `LINK_CREATE_LIMIT_PER_MINUTE` | app | Optional; default 30 (R15, D16) |
 
 `application.yaml` sets `spring.flyway.enabled: false`, the management port `8081` with only `health,info` exposed, Swagger UI disabled (springdoc), and the Hikari timeout. The `local` profile enables Swagger UI (moved from T7 to T6, D15).
 

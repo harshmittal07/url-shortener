@@ -22,6 +22,7 @@ Format: lightweight ADRs. A changed decision gets a new entry that supersedes th
 | D13 | Scope cuts for the time budget | Accepted |
 | D14 | Persistence with `JdbcClient`, not JPA | Accepted |
 | D15 | Scope trim for the time budget | Accepted |
+| D16 | Reshape scenarios 02 and 03 and tighten limits | Accepted |
 
 ---
 
@@ -122,3 +123,12 @@ Format: lightweight ADRs. A changed decision gets a new entry that supersedes th
 
 - **Unchanged:** every security control in spec 01, append-only audit with same-transaction commits, log hygiene, request IDs, Swagger UI off by default, the 2 s database timeout, all other ACs and gates.
 - **Consequences:** No SIEM-ready audit line in the log stream; a SIEM reads audit from the database. Spec 01 L4 narrows: a rejection whose audit write fails leaves only the WARN line as evidence. Log levels follow R23 by convention but are not test-enforced. The API check compares against the committed file, so a breaking change committed together with an edited `api/openapi.yaml` is not caught by the build; engineer review of the contract diff covers it. The build no longer fails when the code adds an endpoint or field without updating `api/openapi.yaml`; breaking changes still fail the build. Mitigation: reviewers check that API changes update `api/openapi.yaml`. Follow-up: restore the exact-match drift check. A regression in the database-outage `503` is caught only when the smoke test runs. A defect in T1 or T2 may reach the T3 review before an agent flags it.
+
+### D16 Reshape scenarios 02 and 03 and tighten limits
+- **Context:** Decided 2026-10-07, after spec 01 was complete and tagged `v1-baseline`. The per-minute creation limit protects the system, but nothing caps a key's total use. Supersedes the scenario content of D9 and the timing of D12; D9's three-scenario mapping on one codebase stands.
+- **Decision:**
+  - **Spec 02 (brownfield)** becomes a daily link quota per API key, default 500 per day, on top of the per-minute limit.
+  - **Spec 03 (ambiguous)** becomes "let teams see their links": a list endpoint (`GET /api/links`). The clarification log is the main deliverable.
+  - **The per-minute creation limit default** (spec 01 R15) changes from 60 to 30. Real teams don't need more; bulk customers can be given a higher value through configuration (`LINK_CREATE_LIMIT_PER_MINUTE`).
+  - **Deferred as follow-ups:** Redis cache, link disable and takedown, per-IP redirect limit, click analytics.
+- **Consequences:** Redis is not introduced by any planned spec (D12 deferred); D3's fail-open cache rule applies when it is. Without takedown, a malicious link that passes the URL policy can be removed only by its owner deleting it (SECURITY.md §10). Without a per-IP limit, unauthenticated audit volume (spec 01 L1) and code enumeration (L5) stay open risks. No click events are published, so D11 and the analytics module remain target design only.

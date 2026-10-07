@@ -51,7 +51,7 @@ API clients need to turn long URLs into short codes and manage their own links. 
 - R14: The redirect module shall resolve codes only through the link module's `LinkLookup` API. A successful redirect performs no writes.
 
 ### Rate limiting
-- R15: Link creation shall be rate-limited per API key. The limit is configurable, with a default of 60 per minute. Every authenticated `POST /api/links` attempt counts toward the limit, including attempts rejected for validation or by the URL policy. A request rejected with `413` (R30) does not count.
+- R15: Link creation shall be rate-limited per API key. The limit is configurable, with a default of 30 per minute (D16). Every authenticated `POST /api/links` attempt counts toward the limit, including attempts rejected for validation or by the URL policy. A request rejected with `413` (R30) does not count.
 - R16: Exceeding the limit shall return `429` with a `Retry-After` header and write a `RATE_LIMITED` audit event.
 
 ### Audit
@@ -170,13 +170,13 @@ URL policy `reason` values: `SCHEME_NOT_ALLOWED`, `HOST_NOT_ALLOWED`, `USERINFO_
 - AC25 (R14, S-20): Given the codebase, when the architecture tests run, then `redirect` depends on `link` only through `link.api`. Given a successful redirect, then no database row is written.
 
 ### Rate limiting
-- AC26 (R15, R16, S-09): Given an owner key that has made 60 creation attempts in the current minute, when it makes one more, then:
+- AC26 (R15, R16, S-09): Given an owner key that has used its configured creation limit (default 30) in the current minute, when it makes one more, then:
   - the response is `429 rate-limited` with `Retry-After`;
   - no link is stored;
   - a `RATE_LIMITED` audit event with the key's ID is written.
 - AC27 (R15): Given the limit is configured to a different value, when it is exercised, then the configured value applies.
 - AC28 (R15): Given two owner keys, when one exhausts its creation limit, then the other can still create links.
-- AC29 (R15, S-09): Given an owner key has made 60 creation attempts in the current minute that were rejected by the URL policy or by validation, when it submits an allowed target, then the response is `429 rate-limited`.
+- AC29 (R15, S-09): Given an owner key has used its configured creation limit (default 30) in the current minute on attempts rejected by the URL policy or by validation, when it submits an allowed target, then the response is `429 rate-limited`.
 
 ### Audit
 - AC30 (R18, S-10): Given the audit write fails during link creation or deletion, when the use case runs, then the link change is rolled back and the client receives an error.
@@ -310,10 +310,14 @@ Your answers settled these: key issuance, unknown vs deleted codes, soft delete,
 - A14 **Self-reference scope (confirmed after T4).** Self-reference (AC15, S-04) is an exact host match against the host of `PUBLIC_BASE_URL`, ignoring case, port, a trailing dot and fullwidth forms. Subdomains of the public host are allowed.
 
 ## Follow-ups (not in spec 01)
-- **Per-client-IP rate limiting** (spec 02). It covers redirects and unauthenticated `/api/**` traffic (L1). It needs the S-09 update and a decision on audit volume under a flood (one row per rejected request, or one per IP per window).
+- **Daily link quota per API key** (spec 02, D16). Default 500 per day, on top of the per-minute limit (R15).
+- **Listing an owner's links** (`GET /api/links`, spec 03, D16). Paginated; an additive change.
+- **Per-client-IP rate limiting** (deferred by D16; no longer spec 02). It covers redirects and unauthenticated `/api/**` traffic (L1). It needs the S-09 update and a decision on audit volume under a flood (one row per rejected request, or one per IP per window).
 - **Trusted-proxy configuration for client IP** (A6, L2). This is a prerequisite for an effective per-IP limit behind Docker or a load balancer.
+- **Redis redirect cache** (deferred by D16; no longer spec 02).
+- **Link disable and takedown** (`LINK_DISABLED`, deferred by D16; no longer spec 02).
+- **Click events and click analytics** (deferred by D16; no longer spec 03).
 - **Distributed tracing** (W3C `traceparent` / OpenTelemetry), when services are extracted (D7 stage C).
-- `GET /api/links` to list an owner's links, paginated. This is an additive change.
 - Prometheus metrics endpoint.
 - Key revocation endpoint (A2).
 - Hash-chained audit rows for tamper evidence (S-11 stretch).

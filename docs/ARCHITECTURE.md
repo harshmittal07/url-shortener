@@ -79,10 +79,11 @@ Rules (enforced by ArchUnit, detailed in AGENTS.md §6):
 | `POST /api/links` | Create a short link | API key | 01 |
 | `GET /api/links/{code}` | Link metadata (owner only) | API key | 01 |
 | `DELETE /api/links/{code}` | Delete a link (owner only) | API key | 01 |
+| `GET /api/links` | List the caller's links (owner only) | API key | 03 |
 | `GET /{code}` | Redirect with `302` | none | 01 |
-| `POST /api/links/{code}/disable` | Takedown; evicts cache | API key (owner or admin) | 02 |
-| `GET /api/links/{code}/stats` | Click stats (owner only) | API key | 03 |
 | `GET /v3/api-docs` | OpenAPI document | none | 01 |
+
+Spec 02 adds no endpoint: the daily link quota applies to `POST /api/links`. Takedown (`POST /api/links/{code}/disable`) and click stats (`GET /api/links/{code}/stats`) are follow-ups (D16).
 
 The contract baseline is `api/openapi.yaml`. Errors use RFC 9457 problem details.
 
@@ -201,12 +202,16 @@ What each step changes:
 - **A:** analytics listener becomes a broker consumer; per-module DB roles.
 - **B:** transactional outbox, idempotent consumers, projections; accepts eventual consistency for new links.
 
+Stage A depends on click analytics, which D16 defers to a follow-up; until it is built there is no analytics module to extract. Stage C is unaffected, though the Redis cache that would back an extracted redirect service is also deferred (D16).
+
 ## 11. Scenario mapping (D9)
 | Scenario | Spec | What it proves |
 |---|---|---|
 | Greenfield | `01-core-shortener` | Secure, audited core built test-first inside module boundaries |
-| Brownfield | `02-redis-cache` | A cross-cutting change added as a decorator, with impact analysis and characterization tests, leaving domain code untouched |
-| Ambiguous | `03-click-analytics` | Open questions surfaced and resolved explicitly (what counts as a click, PII, retention, visibility) before a narrow implementation |
+| Brownfield | `02-daily-link-quota` | A daily link quota per API key added to existing, tagged code (`v1-baseline`), with impact analysis and characterization tests |
+| Ambiguous | `03-list-links` | Open questions about "let teams see their links" surfaced and resolved explicitly in a clarification log (the main deliverable) before a narrow list endpoint |
+
+Reshaped by D16. Redis cache, link disable and takedown, per-IP redirect limit and click analytics are follow-ups.
 
 ## 12. Resolved items from spec 01
 - **First API key:** a bootstrap admin key, configured only as its SHA-256 hash (`BOOTSTRAP_ADMIN_KEY_HASH`), issues owner keys via `POST /api/keys`. The admin key cannot own links.

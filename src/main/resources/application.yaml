@@ -44,4 +44,4 @@ springdoc:
 # RequiredEnvironmentCheck (R22). No defaults: startup fails if any is missing or malformed.
 url-shortener:
   # Optional (R15).
-  link-create-limit-per-minute: ${LINK_CREATE_LIMIT_PER_MINUTE:60}
+  link-create-limit-per-minute: ${LINK_CREATE_LIMIT_PER_MINUTE:30}

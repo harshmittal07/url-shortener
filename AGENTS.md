@@ -21,8 +21,10 @@ Architecture: a modular monolith (one deployable) whose modules can be extracted
 | Spec | Scenario | Mode |
 |---|---|---|
 | `01-core-shortener` | Link + redirect modules, auth, URL policy, audit | Greenfield (Mode A) |
-| `02-redis-cache` | Redis cache as a decorator on the redirect path, plus link disable/takedown | Brownfield (Mode B enhancement) |
-| `03-click-analytics` | Click analytics with privacy questions unresolved | Ambiguous (Mode A, `[NEEDS CLARIFICATION]`-heavy) |
+| `02-daily-link-quota` | Daily link quota per API key (default 500 per day), on top of the per-minute limit (D16) | Brownfield (Mode B enhancement) |
+| `03-list-links` | Let teams see their links: a list endpoint; the clarification log is the main deliverable (D16) | Ambiguous (Mode A, `[NEEDS CLARIFICATION]`-heavy) |
+
+Deferred as follow-ups by D16: Redis cache, link disable and takedown, per-IP redirect limit, click analytics.
 
 - Spec 01 uses all three gates. Specs 02 and 03 may combine the plan and tasks gates into one approval.
 - **Project rule for `plan.md` (low-level design).** Every plan includes, where relevant:
