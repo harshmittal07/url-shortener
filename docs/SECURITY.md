@@ -19,23 +19,23 @@ Security is proportionate to the threat model below. Controls not justified by a
 ## 3. Threat model
 | ID | Threat | Impact | Control(s) | Status |
 |---|---|---|---|---|
-| T1 | Shortening a malicious scheme (`javascript:`, `data:`, `file:`) | Script execution / phishing via a trusted domain | S-01 | Planned (spec 01) |
+| T1 | Shortening a malicious scheme (`javascript:`, `data:`, `file:`) | Script execution / phishing via a trusted domain | S-01 | Implemented (`StandardUrlPolicyTest`) |
 | T2 | Redirect to internal or loopback hosts | Users' browsers pivoted into internal networks | S-02 | Planned (spec 01) |
 | T3 | Phishing disguised with userinfo (`https://bank.com@evil.com`) | Users misled about destination | S-03 | Planned (spec 01) |
 | T4 | Redirect loops via own domain | Resource exhaustion, broken links | S-04 | Planned (spec 01) |
 | T5 | Header injection through crafted target URL | Response splitting | S-05 | Planned (spec 01) |
-| T6 | Enumerating short codes | Discovery of private links | S-06 | Planned (spec 01) |
-| T7 | Unauthorized delete or modify of another owner's link | Integrity loss | S-07, S-08 | Planned (spec 01) |
-| T8 | API key theft from DB, logs or responses | Account takeover | S-07, S-12 | Planned (spec 01) |
+| T6 | Enumerating short codes | Discovery of private links | S-06 | Implemented (`ShortCodeGeneratorContract`, `CodeCollisionIT`); per-IP redirect limit in spec 02 |
+| T7 | Unauthorized delete or modify of another owner's link | Integrity loss | S-07, S-08 | Implemented (`AuthenticationIT`, `ManageLinkIT`) |
+| T8 | API key theft from DB, logs or responses | Account takeover | S-07, S-12 | S-07 implemented (`KeyIssuanceIT`, `ApiKeyAuthenticatorTest`); S-12 planned (T5) |
 | T9 | Abuse at volume (spam creation, redirect flooding) | Cost, reputation, availability | S-09 | Planned (creation: spec 01; per-IP: spec 02) |
-| T10 | Tampering with or deleting audit records | Loss of accountability | S-10, S-11 | Planned (spec 01) |
+| T10 | Tampering with or deleting audit records | Loss of accountability | S-10, S-11 | Implemented (`AuditAtomicityIT`, `AuditEventShapeIT`, `DatabasePrivilegesIT`) |
 | T11 | Sensitive data in logs (keys, tokens in URLs, raw IPs) | Data leak | S-12 | Planned (spec 01) |
 | T12 | Vulnerable dependencies or leaked secrets in repo | Compromise | S-13, S-14 | Planned (spec 01) |
 | T13 | Container breakout / excess privileges | Host compromise | S-15 | Planned (spec 01) |
-| T14 | Information leakage in errors / actuator | Recon for attackers | S-16, S-17 | Planned (spec 01) |
+| T14 | Information leakage in errors / actuator | Recon for attackers | S-16, S-17 | S-16 partly implemented (`SharedExceptionHandlerTest`; DB-outage `503` in T5); S-17 planned (T5) |
 | T15 | Personal data in click analytics | Privacy and compliance exposure | S-18 | Spec 03 |
 | T16 | Stale cache serving deleted or disabled links | Takedown ineffective | S-19 | Spec 02 |
-| T17 | Module boundary bypass (one module reading another's tables) | Hidden coupling; controls bypassed at extraction | S-20 | Planned (spec 01) |
+| T17 | Module boundary bypass (one module reading another's tables) | Hidden coupling; controls bypassed at extraction | S-20 | Implemented (`ArchitectureTest`, `SchemaIT`) |
 | T18 | Unsafe AI-assisted development (secrets exposed to agents, unreviewed generated code, insecure suggestions) | Leaked secrets; vulnerable code shipped | S-21 | Active from kickoff |
 
 Update Status to `Implemented (<test name>)` as controls land.
@@ -50,7 +50,7 @@ Update Status to `Implemented (<test name>)` as controls land.
 ## 5. Controls — identity, access and abuse
 - **S-06 Unguessable codes.** `SecureRandom` Base62, length 7 (~3.5 × 10¹²). Uniqueness via DB constraint with up to 3 retries. If custom aliases are added later, reserved words (`api`, `actuator`, `health`, `docs`, …) are blocked.
 - **S-07 API key handling.** 256 bits of randomness with a public key-ID prefix for lookup. Only a SHA-256 hash is stored (safe for high-entropy keys, unlike human passwords). Constant-time comparison. Shown once at creation, never again. Revocable.
-- **S-08 Owner scoping.** Management endpoints act only on links owned by the calling key. Cross-owner access returns `404`.
+- **S-08 Owner scoping and default-deny authorization.** Management endpoints act only on links owned by the calling key. Cross-owner access returns `404`. Every `/api` route needs an explicit role; anything unlisted is denied, even with a valid key.
 - **S-09 Rate limiting.** Per API key for link creation (spec 01). Per client IP for redirects and unauthenticated `/api/**` requests (spec 02); this needs trusted-proxy configuration to see real client IPs behind Docker or a load balancer. Bucket4j. Exceeding returns `429` with `Retry-After` and writes an audit event. Limitation: in-memory buckets are per instance (§10).
 
 ## 6. Controls — audit (shared kernel)

@@ -51,6 +51,16 @@ public final class JdbcLinkRepository implements LinkRepository {
                 .optional();
     }
 
+    /** The status condition makes a second delete a no-op, so it writes no second audit event (AC21). */
+    @Override
+    public boolean markDeleted(ShortCode code) {
+        int updated = jdbc.sql("""
+                        UPDATE link.links SET status = 'DELETED'
+                        WHERE code = :code AND status = 'ACTIVE'
+                        """).param("code", code.value()).update();
+        return updated == 1;
+    }
+
     private static Link toLink(ResultSet row, int rowNumber) throws SQLException {
         return new Link(
                 row.getObject("id", UUID.class),

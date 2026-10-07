@@ -18,8 +18,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
 /**
- * Stateless API-key security (R3, R4). Key endpoints are admin-only, link endpoints owner-only,
- * every other {@code /api/**} path needs a valid key, and everything else (redirects) is public.
+ * Stateless API-key security (R3, R4). {@code POST /api/keys} is admin-only, link endpoints are
+ * owner-only, every other {@code /api/**} path is denied (default-deny), and everything else
+ * (redirects) is public.
  */
 @Configuration(proxyBeanMethods = false)
 class SecurityConfig {
@@ -45,8 +46,9 @@ class SecurityConfig {
                         .hasRole("ADMIN")
                         .requestMatchers("/api/links", "/api/links/**")
                         .hasRole("OWNER")
+                        // Default-deny: an /api route with no rule above is refused, even with a valid key.
                         .requestMatchers("/api", "/api/**")
-                        .authenticated()
+                        .denyAll()
                         .anyRequest()
                         .permitAll())
                 .addFilterBefore(apiKeyFilter, UsernamePasswordAuthenticationFilter.class)

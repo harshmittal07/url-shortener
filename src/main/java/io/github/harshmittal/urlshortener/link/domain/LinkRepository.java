@@ -13,4 +13,12 @@ public interface LinkRepository {
     boolean insertIfCodeFree(Link link);
 
     Optional<Link> findByCode(ShortCode code);
+
+    /**
+     * Soft-deletes an active link: its status becomes {@code DELETED} and the row keeps its code, so
+     * the code is never issued again (R10, AC22).
+     *
+     * @return false if no active link has the code
+     */
+    boolean markDeleted(ShortCode code);
 }

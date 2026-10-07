@@ -301,6 +301,8 @@ Your answers settled these: key issuance, unknown vs deleted codes, soft delete,
 - A13 **Audit values and the 401 challenge (confirmed after T2).**
   - Audit `outcome` is `SUCCESS` for state changes and `REJECTED` for rejections.
   - `AUTH_FAILED` reason codes are `MISSING`, `MALFORMED`, `UNKNOWN` and `REVOKED`. `ACCESS_DENIED` for a wrong role uses `WRONG_ROLE`.
+  - `WRONG_ROLE` covers any `/api` route that no role is granted, including routes with no rule (default-deny, T3).
+  - `ACCESS_DENIED` for another key's link uses `NOT_OWNER` (confirmed after T3).
   - `resource_type` is `API_KEY` or `LINK`.
   - `401` responses include `WWW-Authenticate: Bearer`.
 

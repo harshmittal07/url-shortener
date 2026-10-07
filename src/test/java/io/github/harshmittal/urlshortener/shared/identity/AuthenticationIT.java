@@ -129,6 +129,30 @@ class AuthenticationIT {
         });
     }
 
+    static Stream<Arguments> unclassifiedRoutesWithValidKeys() {
+        return Stream.of("GET /api/unclassified", "POST /api/unclassified", "GET /api/keys", "GET /api")
+                .flatMap(endpoint -> Stream.of(Arguments.of(endpoint, "owner"), Arguments.of(endpoint, "admin")));
+    }
+
+    @ParameterizedTest(name = "{0} with {1} key")
+    @MethodSource("unclassifiedRoutesWithValidKeys")
+    @DisplayName("R4, S-07: /api/** is default-deny: an unclassified route gets 403 even with a valid key")
+    void unclassifiedApiRouteIsDenied(String endpoint, String keyKind) throws Exception {
+        String key = keyKind.equals("admin") ? TestAdminKey.key() : ApiCalls.newOwnerKey(mvc);
+        String requestId = "deny-" + UUID.randomUUID();
+
+        mvc.perform(request(endpoint).header("Authorization", bearer(key)).header("X-Request-Id", requestId))
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("forbidden"))
+                .andExpect(jsonPath("$.requestId").value(requestId));
+
+        assertThat(AuditRows.forRequest(jdbc, requestId)).singleElement().satisfies(event -> {
+            assertThat(event.get("action")).isEqualTo("ACCESS_DENIED");
+            assertThat(event.get("outcome")).isEqualTo("REJECTED");
+        });
+    }
+
     static Stream<String> linkEndpoints() {
         return apiEndpoints().filter(endpoint -> endpoint.contains("/api/links"));
     }

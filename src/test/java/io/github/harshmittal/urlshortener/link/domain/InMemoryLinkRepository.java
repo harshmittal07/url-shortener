@@ -19,6 +19,24 @@ public final class InMemoryLinkRepository implements LinkRepository {
         return Optional.ofNullable(byCode.get(code));
     }
 
+    @Override
+    public boolean markDeleted(ShortCode code) {
+        Link link = byCode.get(code);
+        if (link == null || !link.isActive()) {
+            return false;
+        }
+        byCode.put(
+                code,
+                new Link(
+                        link.id(),
+                        link.code(),
+                        link.targetUrl(),
+                        link.ownerKeyId(),
+                        LinkStatus.DELETED,
+                        link.createdAt()));
+        return true;
+    }
+
     public List<Link> all() {
         return List.copyOf(byCode.values());
     }

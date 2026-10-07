@@ -44,6 +44,34 @@ public abstract class LinkRepositoryContract {
     }
 
     @Test
+    @DisplayName("AC19, R10: markDeleted soft-deletes an active link; the row and its code remain")
+    void marksActiveLinkDeleted() {
+        Link link = link(TestCodes.random(), LinkStatus.ACTIVE);
+        repository().insertIfCodeFree(link);
+
+        assertThat(repository().markDeleted(link.code())).isTrue();
+
+        assertThat(repository().findByCode(link.code()))
+                .contains(new Link(
+                        link.id(),
+                        link.code(),
+                        link.targetUrl(),
+                        link.ownerKeyId(),
+                        LinkStatus.DELETED,
+                        link.createdAt()));
+    }
+
+    @Test
+    @DisplayName("AC21, R10: markDeleted reports false for a deleted or unknown link")
+    void markDeletedOnlyAffectsActiveLinks() {
+        ShortCode deleted = TestCodes.random();
+        repository().insertIfCodeFree(link(deleted, LinkStatus.DELETED));
+
+        assertThat(repository().markDeleted(deleted)).isFalse();
+        assertThat(repository().markDeleted(TestCodes.random())).isFalse();
+    }
+
+    @Test
     @DisplayName("R13: an unknown code finds nothing")
     void unknownCodeFindsNothing() {
         assertThat(repository().findByCode(TestCodes.random())).isEmpty();

@@ -2,6 +2,7 @@ package io.github.harshmittal.urlshortener.shared.audit;
 
 import static io.github.harshmittal.urlshortener.support.ApiCalls.bearer;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -68,6 +69,29 @@ class AuditAtomicityIT {
                 .query(Integer.class)
                 .single();
         assertThat(stored).isZero();
+        assertThat(AuditRows.forRequest(jdbc, requestId)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("AC30, S-10: if the LINK_DELETED write fails, the delete is rolled back and the client gets 500")
+    void linkDeletionRollsBack() throws Exception {
+        String ownerKey = ApiCalls.newOwnerKey(mvc);
+        String code = ApiCalls.newLinkCode(mvc, ownerKey, "https://example.com/ac30-delete");
+        String requestId = "ac30-del-" + UUID.randomUUID();
+        FAIL_STATE_CHANGES.set(true);
+
+        mvc.perform(delete("/api/links/" + code)
+                        .header("Authorization", bearer(ownerKey))
+                        .header("X-Request-Id", requestId))
+                .andExpect(status().isInternalServerError())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("internal-error"));
+
+        String linkStatus = jdbc.sql("SELECT status FROM link.links WHERE code = :code")
+                .param("code", code)
+                .query(String.class)
+                .single();
+        assertThat(linkStatus).isEqualTo("ACTIVE");
         assertThat(AuditRows.forRequest(jdbc, requestId)).isEmpty();
     }
 

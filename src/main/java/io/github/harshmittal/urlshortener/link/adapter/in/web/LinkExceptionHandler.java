@@ -1,6 +1,7 @@
 package io.github.harshmittal.urlshortener.link.adapter.in.web;
 
 import io.github.harshmittal.urlshortener.link.domain.CodeGenerationFailedException;
+import io.github.harshmittal.urlshortener.link.domain.LinkNotFoundException;
 import io.github.harshmittal.urlshortener.link.domain.UrlRejectedException;
 import io.github.harshmittal.urlshortener.shared.web.ProblemDetails;
 import io.github.harshmittal.urlshortener.shared.web.RequestIdFilter;
@@ -29,6 +30,14 @@ public class LinkExceptionHandler {
                 ProblemDetails.of(HttpStatus.BAD_REQUEST, "url-rejected", RequestIdFilter.requestIdOf(request));
         problem.setProperty("reason", e.reason().name());
         return respond(HttpStatus.BAD_REQUEST, problem);
+    }
+
+    /** The same body for unknown, malformed, deleted and other owners' codes (R11, S-08). */
+    @ExceptionHandler(LinkNotFoundException.class)
+    ResponseEntity<ProblemDetail> notFound(LinkNotFoundException e, HttpServletRequest request) {
+        return respond(
+                HttpStatus.NOT_FOUND,
+                ProblemDetails.of(HttpStatus.NOT_FOUND, "not-found", RequestIdFilter.requestIdOf(request)));
     }
 
     @ExceptionHandler(CodeGenerationFailedException.class)
