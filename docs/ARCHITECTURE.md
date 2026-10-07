@@ -16,8 +16,8 @@ Out of scope: user accounts and login UI, custom domains, custom aliases, link p
 | Security | Malicious or internal targets rejected; owners isolated; secrets never exposed | URL policy, hashed keys, owner scoping, rate limits (SECURITY.md) |
 | Auditability | Every state change and security rejection is recorded and cannot be altered | Append-only `audit_events`, same-transaction writes, request IDs |
 | Composability | Infrastructure and modules can be swapped or extracted without touching domain logic | Ports and adapters, module `api` packages, ArchUnit |
-| Reliability | Redirects keep working when non-essential parts fail | Fail-open cache, async analytics, DB as source of truth |
-| Performance | Redirect path does no synchronous writes | Read-only lookup + async click event; cache from spec 02 |
+| Reliability | Redirects keep working when non-essential parts fail | Fail-open cache (spec 02), async analytics (spec 03), DB as source of truth |
+| Performance | Redirect path does no synchronous writes | Read-only lookup; async click event from spec 03; cache from spec 02 |
 | Evolvability | Contract changes never break clients | Versionless API with oasdiff gate (D6) |
 | Runnability | One command runs the whole system locally | Docker Compose |
 
@@ -43,7 +43,7 @@ flowchart TB
     subgraph redirect["redirect module"]
       RW["web: GET /{code}"] --> RS["domain: resolve"]
       RS --> LAPI
-      RS --> EP["EventPublisher port"]
+      RS --> EP["EventPublisher port (spec 03)"]
     end
     subgraph analytics["analytics module · schema analytics (spec 03)"]
       AC["click event listener"] --> AS["domain: aggregate"]
@@ -56,7 +56,7 @@ flowchart TB
       RID["request IDs, errors, Clock"]
       SEC --> IDN
     end
-    EP -.->|"in-process event"| AC
+    EP -.->|"in-process click event (spec 03)"| AC
     LS --> AUD
   end
   LP --> PG[("PostgreSQL")]
@@ -65,8 +65,10 @@ flowchart TB
   AS --> PG
 ```
 
+This is the target design. Click events, the `EventPublisher` port and the analytics module are introduced by spec 03; until then the redirect module only resolves codes and publishes nothing.
+
 Rules (enforced by ArchUnit, detailed in AGENTS.md §6):
-- Modules call each other only through `api` interfaces or events. `redirect` resolves codes through `LinkLookup`, never through link tables.
+- Modules call each other only through `api` interfaces or, from spec 03, events. `redirect` resolves codes through `LinkLookup`, never through link tables.
 - Each module owns its schema. The shared kernel holds only cross-cutting concerns, never business rules.
 - `app` is the composition root and the only place adapters are wired.
 
@@ -108,7 +110,7 @@ sequenceDiagram
   end
 ```
 
-**Redirect** (cache steps arrive in spec 02, click event consumer in spec 03)
+**Redirect** (target design: cache steps arrive in spec 02; `EventPublisher` and the click event arrive in spec 03)
 ```mermaid
 sequenceDiagram
   participant V as Visitor
@@ -125,7 +127,7 @@ sequenceDiagram
     LK-->>R: target or not found
     R->>K: put(code, target, TTL) when available
   end
-  R-)E: ClickEvent (async, never blocks)
+  R-)E: ClickEvent (spec 03; async, never blocks)
   R-->>V: 302 Location: target (or 404)
 ```
 
@@ -181,7 +183,7 @@ The database has two users:
 |---|---|---|
 | Redis unavailable | Read from PostgreSQL; log and count the fallback | Cache is an optimisation, never a dependency (D3) |
 | PostgreSQL unavailable | Management API and uncached redirects return `503`; cached redirects still served | DB is the source of truth |
-| Analytics listener fails | Redirect still succeeds; event failure is logged and counted | Analytics never degrades the redirect path (D11) |
+| Analytics listener fails (from spec 03) | Redirect still succeeds; event failure is logged and counted | Analytics never degrades the redirect path (D11) |
 | Audit write fails | The whole state change rolls back | No change without a record (S-10) |
 | Audit write fails on a rejection | The request is still rejected with its original response; the audit failure is logged | A rejection never fails open (R20 in spec 01) |
 | Short-code collision | Retry up to 3 times, then `503` | Constraint-based safety (S-06) |

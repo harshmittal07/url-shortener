@@ -23,7 +23,7 @@ Key design choices:
 | `flyway/flyway` image as the one-shot step | Same app image in a migrate-only mode | No migrate mode to build or test; the app image never contains a code path that needs DDL credentials |
 | Bucket4j behind `RateLimiter` | Hand-written token bucket | Listed in D2; a Redis-backed adapter later (SECURITY.md §10) only swaps the adapter |
 | oasdiff in a Testcontainers container | Installed oasdiff binary | Docker is already required for tests; no extra local tool; pinned image version |
-| Generated OpenAPI checked against committed `api/openapi.yaml` (A11) | Serving the committed YAML as a static file | An oasdiff check of the generated document against the committed file keeps code and contract in step (D15); static serving could silently diverge from the controllers |
+| Generated OpenAPI checked against committed `api/openapi.yaml` (A11) | Serving the committed YAML as a static file | An oasdiff check of the generated document against the committed file catches breaking changes only; the exact-match drift check is a follow-up (D15). Static serving could silently diverge from the controllers |
 | Distroless `java21-debian12:nonroot` runtime | `eclipse-temurin:21-jre-alpine` + `adduser` | No shell or package manager, non-root by default; nothing needs a container health check |
 | HMAC-SHA256 of the IP keyed by `IP_HASH_SALT` | Plain `SHA-256(salt + ip)` | Standard keyed construction; same cost |
 

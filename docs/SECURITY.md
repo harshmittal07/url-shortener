@@ -107,4 +107,4 @@ Security response headers on all API responses: `X-Content-Type-Options: nosniff
 | Distributed rate limiting | Single instance in prototype | Redis-backed Bucket4j |
 | DNS rebinding / resolved-IP checks | Service never fetches targets | Revisit if link previews are added |
 
-Residual risk accepted: a public phishing URL that passes policy can be shortened. Mitigation: takedown via `LINK_DISABLED` (spec 02), which is audited and evicts the cache.
+Residual risk accepted: a public phishing URL that passes policy can be shortened. Future mitigation, landing in spec 02: takedown via `LINK_DISABLED`, which is audited and evicts the cache. Until spec 02, a malicious link can only be removed by its owner deleting it.

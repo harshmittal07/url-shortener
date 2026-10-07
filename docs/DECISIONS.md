@@ -35,7 +35,7 @@ Format: lightweight ADRs. A changed decision gets a new entry that supersedes th
 - **Decision:** Java 21 LTS, Spring Boot 4.x (latest stable at project creation), Gradle (Kotlin DSL); Flyway, Testcontainers, ArchUnit, springdoc, Bucket4j.
 - **Alternatives:** Python/FastAPI (faster scaffolding, weaker fit); Maven (equally valid, Gradle chosen for task wiring).
 - **Consequences:** More verbose code, absorbed by AI; mature security and architecture tooling.
-- **Amendment (2026-10-06, at project creation):** originally planned as Spring Boot 3. Changed to 4.x because the 3.x line reached end of open-source support on 2026-06-30; starting a security-focused project on an unsupported framework is not defensible. Plugin compatibility with Boot 4 (springdoc, OWASP Dependency-Check, SpotBugs) is verified in spec 01's plan. Java 21 LTS chosen over the installed JDK 26 (non-LTS) for toolchain compatibility.
+- **Amendment (2026-10-06, at project creation):** originally planned as Spring Boot 3. Changed to 4.x because the 3.x line reached end of open-source support on 2026-06-30; starting a security-focused project on an unsupported framework is not defensible. Boot 4 compatibility of each tool is checked in the task that adds it (spec 01 plan §10); SpotBugs and OWASP Dependency-Check are deferred (D13). Java 21 LTS chosen over the installed JDK 26 (non-LTS) for toolchain compatibility.
 
 ### D3 PostgreSQL as source of truth; Redis as fail-open cache
 - **Decision:** Postgres for links, audit and analytics (schema per module). Redis caches redirect lookups behind a port.

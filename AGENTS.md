@@ -5,7 +5,7 @@ They add to the engineer's process (`docs/process/`); they do not replace it. If
 The engineer owns every decision. Agents propose, implement one approved task at a time, and report honestly.
 
 ## 1. Project in one paragraph
-A URL shortener: create short links, redirect, track clicks, expose owner-only stats.
+A URL shortener: create short links and redirect (spec 01), disable links (spec 02), track clicks and expose owner-only stats (spec 03).
 Security, auditability and composable modules are baseline requirements.
 Architecture: a modular monolith (one deployable) whose modules can be extracted into services later. See `docs/ARCHITECTURE.md`.
 
@@ -59,19 +59,19 @@ Integration tests need Docker. If a command cannot run in your environment, say 
 ```
 io.github.harshmittal.urlshortener
 ├── shared/       kernel: security (API-key auth), audit port + adapter, request IDs, error model, Clock
-├── link/         module: create, delete, disable links; owns schema `link`
+├── link/         module: create, delete, disable (spec 02) links; owns schema `link`
 │   ├── api/          public interfaces other modules may call (e.g. LinkLookup)
 │   ├── domain/       model, ports, services: plain Java, no Spring, no JPA, no Redis
 │   └── adapter/      in/web (controllers, DTOs), out/persistence
-├── redirect/     module: GET /{code} → 302; publishes click events
+├── redirect/     module: GET /{code} → 302; publishes click events (spec 03)
 │   ├── domain/
-│   └── adapter/      in/web, out/cache (spec 02), out/events
+│   └── adapter/      in/web, out/cache (spec 02), out/events (spec 03)
 ├── analytics/    module (spec 03): consumes click events; owns schema `analytics`
 └── app/          composition root: Spring Boot main + the ONLY place adapters are wired to ports
 ```
 - A module may use another module only through its `api` package or its published events. Never its `domain`, `adapter` or tables.
 - Inside a module, dependencies point inward: `adapter` → `domain`. Never the reverse.
-- Modules communicate in-process: synchronous calls through `api` interfaces, asynchronous click events through Spring application events behind an `EventPublisher` port. No message broker in the monolith.
+- Modules communicate in-process: synchronous calls through `api` interfaces, asynchronous click events through Spring application events behind an `EventPublisher` port (both from spec 03). No message broker in the monolith.
 - Each module owns its Postgres schema. No cross-schema queries or joins.
 - Time comes from an injected `java.time.Clock`. Randomness comes from `ShortCodeGenerator`. Never call `Instant.now()` or `new Random()` in domain code.
 - New infrastructure means a new adapter behind a port, plus a contract test for that port. Cross-cutting behaviour (caching, metrics) is a decorator over a port, never an edit to a service.
