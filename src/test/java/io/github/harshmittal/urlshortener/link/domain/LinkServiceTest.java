@@ -375,6 +375,49 @@ class LinkServiceTest {
         };
     }
 
+    /** Spec 03: list the caller's links. */
+    @Nested
+    class ListLinks {
+
+        @Test
+        @DisplayName("AC1, AC3 (spec 03), S-08: the owner gets its own active links, newest first, up to the limit")
+        void listsOwnActiveLinksNewestFirst() {
+            Link older = givenLinkAt(OWNER, LinkStatus.ACTIVE, NOW.minusSeconds(60));
+            Link newer = givenLinkAt(OWNER, LinkStatus.ACTIVE, NOW);
+            givenLinkAt(OWNER, LinkStatus.DELETED, NOW.plusSeconds(1));
+            givenLinkAt(OTHER_OWNER, LinkStatus.ACTIVE, NOW.plusSeconds(2));
+
+            assertThat(service(noCodes()).list(OWNER, LinkService.MAX_LIST_LIMIT))
+                    .containsExactly(newer, older);
+            assertThat(service(noCodes()).list(OWNER, 1)).containsExactly(newer);
+        }
+
+        @ParameterizedTest(name = "limit {0}")
+        @ValueSource(ints = {0, -1, LinkService.MAX_LIST_LIMIT + 1})
+        @DisplayName("R4 (spec 03): a limit outside 1 to 100 is refused")
+        void refusesLimitOutOfRange(int limit) {
+            assertThatThrownBy(() -> service(noCodes()).list(OWNER, limit))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @DisplayName("AC10 (spec 03), S-10: listing writes no audit event")
+        void listingWritesNoAuditEvent() {
+            givenLinkAt(OWNER, LinkStatus.ACTIVE, NOW);
+
+            service(noCodes()).list(OWNER, LinkService.DEFAULT_LIST_LIMIT);
+
+            assertThat(auditSink.events()).isEmpty();
+        }
+
+        private Link givenLinkAt(UUID owner, LinkStatus status, Instant createdAt) {
+            Link link = new Link(
+                    UUID.randomUUID(), TestCodes.random(), "https://example.com/own", owner, status, createdAt);
+            links.insertIfCodeFree(link);
+            return link;
+        }
+    }
+
     private void assertAccessDenied(Link link) {
         assertThat(auditSink.events()).singleElement().satisfies(event -> {
             assertThat(event.action()).isEqualTo(AuditAction.ACCESS_DENIED);

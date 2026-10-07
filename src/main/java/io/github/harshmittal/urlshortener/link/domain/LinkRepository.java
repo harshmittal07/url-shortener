@@ -1,6 +1,7 @@
 package io.github.harshmittal.urlshortener.link.domain;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -29,4 +30,10 @@ public interface LinkRepository {
      * count (spec 02 R1, R2).
      */
     long countCreatedBy(UUID ownerKeyId, Instant from, Instant until);
+
+    /**
+     * The owner's {@code ACTIVE} links, newest first, ties by code in descending binary order, at
+     * most {@code limit} of them. Only the owner's links, by the query itself (spec 03 R2, R3, S-08).
+     */
+    List<Link> findActiveByOwner(UUID ownerKeyId, int limit);
 }

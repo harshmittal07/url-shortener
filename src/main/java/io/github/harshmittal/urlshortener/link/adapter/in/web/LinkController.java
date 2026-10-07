@@ -15,9 +15,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.time.Instant;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -25,6 +28,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Owner link endpoints (owner role enforced by the security configuration). */
@@ -74,6 +78,31 @@ public class LinkController {
                 .body(new CreatedLinkResponse(link.code().value(), shortUrl(link), link.targetUrl(), link.createdAt()));
     }
 
+    /**
+     * The caller's active links, newest first (spec 03 R1–R4). An invalid {@code limit} is a {@code 400
+     * validation-failed} from the shared handler (R5); unknown parameters are ignored.
+     */
+    @GetMapping("/api/links")
+    @Operation(operationId = "listLinks", summary = "List the caller's active links, newest first")
+    @ApiResponse(
+            responseCode = "200",
+            description = "OK",
+            content =
+                    @Content(mediaType = "application/json", schema = @Schema(implementation = LinkListResponse.class)))
+    @ApiResponse(responseCode = "400", ref = ProblemDetails.OPENAPI_RESPONSE)
+    @ApiResponse(responseCode = "401", ref = ProblemDetails.OPENAPI_RESPONSE)
+    @ApiResponse(responseCode = "403", ref = ProblemDetails.OPENAPI_RESPONSE)
+    @ApiResponse(responseCode = "503", ref = ProblemDetails.OPENAPI_RESPONSE)
+    LinkListResponse list(
+            @RequestParam(defaultValue = "" + LinkService.DEFAULT_LIST_LIMIT) @Min(1) @Max(LinkService.MAX_LIST_LIMIT)
+                    int limit,
+            HttpServletRequest request) {
+        AuditContext context = auditContexts.of(request);
+        return new LinkListResponse(links.list(context.actorKeyId(), limit).stream()
+                .map(this::toResponse)
+                .toList());
+    }
+
     /** Another key's, deleted, unknown and malformed codes all get the same {@code 404} (R11). */
     @GetMapping("/api/links/{code}")
     @Operation(operationId = "getLink", summary = "Read one of the caller's links")
@@ -87,13 +116,7 @@ public class LinkController {
     @ApiResponse(responseCode = "503", ref = ProblemDetails.OPENAPI_RESPONSE)
     LinkResponse get(@PathVariable String code, HttpServletRequest request) {
         AuditContext context = auditContexts.of(request);
-        Link link = links.get(code, context.actorKeyId(), context);
-        return new LinkResponse(
-                link.code().value(),
-                shortUrl(link),
-                link.targetUrl(),
-                link.status().name(),
-                link.createdAt());
+        return toResponse(links.get(code, context.actorKeyId(), context));
     }
 
     /** Soft delete (R10); answers like {@link #get} for a code the caller may not see. */
@@ -112,6 +135,15 @@ public class LinkController {
 
     private String shortUrl(Link link) {
         return publicBaseUrl + "/" + link.code().value();
+    }
+
+    private LinkResponse toResponse(Link link) {
+        return new LinkResponse(
+                link.code().value(),
+                shortUrl(link),
+                link.targetUrl(),
+                link.status().name(),
+                link.createdAt());
     }
 
     /** Unknown fields are ignored (AGENTS.md §7). The length limit is enforced by the URL policy (S-05). */
@@ -151,4 +183,10 @@ public class LinkController {
             String status,
 
             Instant createdAt) {}
+
+    /** An object, not a bare array, so {@code nextCursor} can be added later (D6, spec 03 Q4, Q5). */
+    @Schema(
+            name = "LinkList",
+            requiredProperties = {"items"})
+    record LinkListResponse(List<LinkResponse> items) {}
 }

@@ -8,6 +8,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -74,6 +75,25 @@ public final class JdbcLinkRepository implements LinkRepository {
                 .param("until", Timestamp.from(until))
                 .query(Long.class)
                 .single();
+    }
+
+    /**
+     * {@code COLLATE "C"} orders codes by their bytes, as Java does, whatever the database collation
+     * (spec 03 R3). Served by {@code links_owner_created_idx} (V4).
+     */
+    @Override
+    public List<Link> findActiveByOwner(UUID ownerKeyId, int limit) {
+        return jdbc.sql("""
+                        SELECT id, code, target_url, owner_key_id, status, created_at
+                        FROM link.links
+                        WHERE owner_key_id = :ownerKeyId AND status = 'ACTIVE'
+                        ORDER BY created_at DESC, code COLLATE "C" DESC
+                        LIMIT :limit
+                        """)
+                .param("ownerKeyId", ownerKeyId)
+                .param("limit", limit)
+                .query(JdbcLinkRepository::toLink)
+                .list();
     }
 
     private static Link toLink(ResultSet row, int rowNumber) throws SQLException {

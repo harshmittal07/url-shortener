@@ -79,7 +79,7 @@ Rules (enforced by ArchUnit, detailed in AGENTS.md §6):
 | `POST /api/links` | Create a short link | API key | 01 |
 | `GET /api/links/{code}` | Link metadata (owner only) | API key | 01 |
 | `DELETE /api/links/{code}` | Delete a link (owner only) | API key | 01 |
-| `GET /api/links` | List the caller's links (owner only) | API key | 03 |
+| `GET /api/links` | List the caller's active links, newest first, `{ items }`; `limit` 1–100, default 50 (owner only) | API key | 03 |
 | `GET /{code}` | Redirect with `302` | none | 01 |
 | `GET /v3/api-docs` | OpenAPI document | none | 01 |
 
