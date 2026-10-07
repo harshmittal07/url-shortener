@@ -1,0 +1,5 @@
+# Integration tests run Flyway in-process as the migration user (A10).
+# In Docker Compose, Flyway runs as a separate one-shot step instead.
+spring:
+  flyway:
+    enabled: true

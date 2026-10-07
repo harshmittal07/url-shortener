@@ -4,7 +4,7 @@ Status: Approved (Gate 3)
 
 Each task is one commit, written test first, and ends with `./gradlew check` green (real output reported), Spotless and gitleaks clean, and a drafted `docs/AI_LOG.md` row. Boot 4 compatibility of each new dependency or plugin is checked first in the task that adds it (plan §10). One task at a time; the next starts only after the engineer's go-ahead.
 
-- [ ] **T1 Foundation and gate** (AC6, AC7, AC25 (arch), AC31, AC34, AC41)
+- [x] **T1 Foundation and gate** (AC6, AC7, AC25 (arch), AC31, AC34, AC41)
   - Move the main class to `app`; create the package skeleton (plan §3).
   - Swap JPA for `spring-boot-starter-jdbc` (D14).
   - `docker/postgres/initdb/01-users.sh`; Flyway migrations V1–V3 with grants to the app user (plan §5).

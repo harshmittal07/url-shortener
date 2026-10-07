@@ -1,3 +1,10 @@
 spring:
   application:
     name: url-shortener
+  flyway:
+    # Flyway runs as a separate one-shot step with the migration user's credentials (R21, A10).
+    # The application never migrates and never receives those credentials.
+    enabled: false
+    schemas: flyway,identity,link,audit
+    default-schema: flyway
+    create-schemas: true

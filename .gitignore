@@ -40,7 +40,7 @@ out/
 !.env.example
 .gradle/
 build/
-out/
+/out/
 .idea/
 *.iml
 .DS_Store
