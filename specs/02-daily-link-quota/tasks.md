@@ -11,7 +11,14 @@ Each task is one atomic commit, made only after the engineer's go-ahead. Tests c
   - Note in `current-behavior.md` that G3 was already covered by AC26 (done at this gate).
   - Commit: `test(link): characterize link creation and the rate-limited 429 before the daily quota`.
 
-- [ ] **T2 Daily link quota with V4** (AC1–AC20, AC21 re-run; R1–R14). High-impact (migration, rate limiting, `app/`), covered by this plan.
+- [x] **T2 Daily link quota with V4** (AC1–AC20, AC21 re-run; R1–R14). High-impact (migration, rate limiting, `app/`), covered by this plan.
+  - Done, test-first, with each step shown red before green:
+    - repository: 7 red (3 contract tests × 2 adapters, plus `SchemaIT`)
+    - use case: 6 red (the 3 "allowed" cases passed already, as expected)
+    - configuration: 12 red; the placeholder's `NumberFormatException` echoed the value
+    - end to end: 9 red (`500 internal-error` before the handler)
+  - Gate: `./gradlew check` green, 354 unit and 186 integration tests, 0 failures. Domain line coverage 95.5% (450/471). `ApiContractIT` (oasdiff) green. V1–V3 are identical to `v1-baseline`.
+  - Deviation: the integration test profile now caps the Hikari pool at 5, because the shared test Postgres ran out of connections once `DailyQuotaIT` added two contexts (plan §9). `DailyQuotaDefaultIT` is in `app`, not `link`.
   1. **Repository count, red then green:** `LinkRepositoryContract` + "R1: count window is [from, until)", "R2: count includes deleted links", "R1: count is per owner". Then `countCreatedBy` on the port, `InMemoryLinkRepository` and `JdbcLinkRepository`. Then `V4__link_links_owner_created_index.sql` and `SchemaIT` "AC20: index exists".
   2. **Use case, red then green:** `LinkServiceTest` quota tests for AC1, AC2, AC3, AC5, AC6, AC7, AC9 and AC11. The fixture passes `Integer.MAX_VALUE` to existing tests. Then `DailyQuotaExceededException` and `LinkService.requireWithinDailyQuota`.
   3. **Configuration, red then green:** `DailyQuotaSettingTest` (AC19). Then `DailyQuotaSetting`, `LinkConfig`, `application.yaml` and `compose.yaml` (R12).
@@ -22,7 +29,33 @@ Each task is one atomic commit, made only after the engineer's go-ahead. Tests c
   8. Commit: `feat(link): daily link quota per API key (spec 02)`. The body lists R1–R14 and AC1–AC22.
 
 ## Mutation check result
-_Filled in during T2._
+Mutation: `AND status = 'ACTIVE'` added to the count query in `JdbcLinkRepository.countCreatedBy` with the Edit tool, after T2 was staged. SHA-256 of the file before: `4f41b899…eeae4a`.
+
+`./gradlew integrationTest --tests '*JdbcLinkRepositoryIT' --tests '*DailyQuotaIT*'` → `BUILD FAILED`, with exactly the two expected failures:
+- `JdbcLinkRepositoryIT` "R2 (spec 02), S-09: the count includes the owner's deleted links": `expected: 2L but was: 1L` (1 of 9 failed)
+- `DailyQuotaIT` "AC3 (spec 02), S-09: deleted links still count toward the quota": `Status expected:<429> but was:<201>` (1 of 11 failed)
+
+Restored with `git checkout -- …/JdbcLinkRepository.java`. `git diff --exit-code` showed no difference from the index, and the SHA-256 after matches the one before. The re-run was green: 9 of 9 and 11 of 11.
 
 ## Traceability
-_Filled in after T2: R → AC → test → task → commit._
+T1 = `281caca`. T2 = the spec 02 feature commit.
+
+| R | AC | Tests (`@DisplayName` prefix) | Task |
+|---|---|---|---|
+| R1 | AC1, AC2, AC5, AC6, AC7 | `LinkServiceTest$DailyQuota` AC1, AC2, AC5, AC6/AC9, AC7; `LinkRepositoryContract` "R1 … [from, until)", "R1 … only the given owner's"; `DailyQuotaIT` AC1/AC10, AC6/AC9, AC7 | T2 |
+| R2 | AC3 | `LinkServiceTest$DailyQuota` AC3; `LinkRepositoryContract` "R2 … includes the owner's deleted links" (mutation-checked); `DailyQuotaIT` AC3 (mutation-checked) | T2 |
+| R3 | AC4, AC16 | `DailyQuotaIT` AC4 (413, url-rejected, validation-failed); `DailyQuotaIT$CheckOrder` AC4 (per-minute), AC12/AC16 | T2 |
+| R4 | AC1, AC3 | `JdbcLinkRepositoryIT` (count from `link.links`) | T2 |
+| R5 | AC1, AC8 | `LinkServiceTest$DailyQuota` AC1; `DailyQuotaIT` AC1/AC10, AC8 | T2 |
+| R6 | AC8, AC9 | `LinkServiceTest$DailyQuota` AC8, AC6/AC9; `DailyQuotaIT` AC8, AC6/AC9 | T2 |
+| R7 | AC10, AC11 | `DailyQuotaIT` AC1/AC10; `LinkServiceTest$DailyQuota` AC1, AC11 | T2 |
+| R8 | AC12–AC15 | `DailyQuotaIT$CheckOrder` AC12/AC16; `DailyQuotaIT` AC13, AC14, AC15; `LinkServiceTest$DailyQuota` AC14 | T2 |
+| R9 | — | Accepted overshoot (L1), documented in the spec, plan §7 and `LinkService` Javadoc; not tested | — |
+| R10 | AC5, AC6 | `LinkServiceTest$DailyQuota` AC5, AC6/AC9; `DailyQuotaIT` AC6/AC9 | T2 |
+| R11 | AC17, AC18, AC19 | `DailyQuotaDefaultIT` AC17; `DailyQuotaSettingTest` AC18, AC19 (both); `LinkServiceTest` "R11 … below 1 is refused"; `DailyQuotaIT` runs with 3 and 2 | T2 |
+| R12 | — | `compose.yaml` line; checked on your next `docker compose up` (not automated) | T2 |
+| R13 | AC20 | `SchemaIT` AC20; `git diff --exit-code v1-baseline` on V1–V3; `DatabasePrivilegesIT` unchanged and green | T2 |
+| R14 | — | WARN line in `LinkService.requireWithinDailyQuota`; follows the per-minute line's shape. Log content is not test-enforced (D15 moved log-level tests to a follow-up); `LogHygieneIT` still green | T2 |
+| Delta | AC21, AC22 | Every spec 01 test unchanged and green; `CreationRateLimitIT` AC22; `CreateLinkIT` G2 | T1, T2 |
+
+Requirements without an automated test: R9 (accepted race), R12 (Compose wiring), R14 (log line). Each is listed above with how it is covered instead.

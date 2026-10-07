@@ -139,8 +139,19 @@ In these criteria "quota" is the configured `LINK_DAILY_QUOTA`; tests use a smal
 LINK_DAILY_QUOTA=500
 ```
 
+## Proposed SECURITY.md text (Q6, for the engineer to apply)
+T9 row, Status column. Replace:
+> Per-minute creation limit implemented (`CreationRateLimitIT`); daily link quota planned (spec 02); per-IP is a follow-up (D16)
+
+with:
+> Per-minute creation limit implemented (`CreationRateLimitIT`); daily link quota implemented (`DailyQuotaIT`, `LinkServiceTest`, `JdbcLinkRepositoryIT`); per-IP is a follow-up (D16)
+
+Optional, for accuracy: S-09 ends "Bucket4j. Exceeding returns `429` …". Bucket4j applies only to the per-minute limit. A possible wording: "The per-minute limit uses Bucket4j; the daily quota is counted from stored links, so it holds across restarts and instances. Exceeding either returns `429` (`rate-limited` or `quota-exceeded`) with `Retry-After` and writes a `RATE_LIMITED` audit event (`CREATE_LIMIT` or `DAILY_QUOTA`). Limitation: in-memory per-minute buckets are per instance (§10); the daily quota may overshoot by one or two under concurrent requests (spec 02 L1)."
+
 ## Follow-ups (not in spec 02)
 - Per-tier or per-key quotas.
 - `X-Quota-Remaining` / `RateLimit` headers or a quota endpoint.
 - Monthly quotas.
 - Strict quota under concurrency (per-key counter row with `SELECT ... FOR UPDATE`), if L1 ever matters.
+- Docs drift found during spec 02, not fixed here: ARCHITECTURE.md §2, §3 and §8 still say Redis arrives "from spec 02", and SECURITY.md §1 lists Redis as a dependency. Both are stale since D16 deferred the cache.
+- `CREATE INDEX CONCURRENTLY` in a non-transactional migration, for when `link.links` is large (plan §7).

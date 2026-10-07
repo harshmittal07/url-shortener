@@ -3,6 +3,12 @@
 spring:
   flyway:
     enabled: true
+  # Every cached test context keeps its own pool against the one shared container, whose
+  # max_connections is 100. Tests are sequential and need at most two connections per request
+  # (a rejection's audit write runs in its own transaction), so a small pool is enough.
+  datasource:
+    hikari:
+      maximum-pool-size: 5
 
 # Test-only values. BOOTSTRAP_ADMIN_KEY_HASH comes from scripts/new-admin-key.sh at test start.
 PUBLIC_BASE_URL: https://sho.rt

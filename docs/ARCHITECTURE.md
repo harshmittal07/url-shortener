@@ -98,18 +98,25 @@ sequenceDiagram
   participant P as UrlPolicy
   participant DB as PostgreSQL
   C->>F: POST /api/links (API key)
-  F->>F: hash key, constant-time match, rate limit
+  F->>F: body cap, hash key, constant-time match, per-minute limit
   F->>L: create(target, owner)
-  L->>P: validate(target)
-  alt rejected
-    P-->>L: violation
-    L->>DB: insert audit URL_REJECTED
-    L-->>C: 400 problem+json
-  else accepted
-    L->>DB: insert link (unique code, retry ≤ 3) + audit LINK_CREATED, one transaction
-    L-->>C: 201 {code, shortUrl}
+  L->>DB: count owner's links created today (UTC, deleted included)
+  alt daily quota used (spec 02)
+    L->>DB: insert audit RATE_LIMITED (DAILY_QUOTA)
+    L-->>C: 429 quota-exceeded, Retry-After to 00:00 UTC
+  else within quota
+    L->>P: validate(target)
+    alt rejected
+      P-->>L: violation
+      L->>DB: insert audit URL_REJECTED
+      L-->>C: 400 problem+json
+    else accepted
+      L->>DB: insert link (unique code, retry ≤ 3) + audit LINK_CREATED, one transaction
+      L-->>C: 201 {code, shortUrl}
+    end
   end
 ```
+The full check order and the daily quota's design are in `specs/02-daily-link-quota/plan.md`.
 
 **Redirect** (target design: cache steps arrive in spec 02; `EventPublisher` and the click event arrive in spec 03)
 ```mermaid
@@ -189,6 +196,8 @@ The database has two users:
 | Audit write fails on a rejection | The request is still rejected with its original response; the audit failure is logged | A rejection never fails open (R20 in spec 01) |
 | Short-code collision | Retry up to 3 times, then `503` | Constraint-based safety (S-06) |
 | Rate limit exceeded | `429` with `Retry-After`, audited | Abuse control (S-09) |
+| Daily link quota used (spec 02) | `429 quota-exceeded` with `Retry-After` to the next 00:00 UTC, audited; concurrent requests at the limit may overshoot by one or two | Abuse control counted from stored links, shared by all instances (S-09) |
+| PostgreSQL unavailable during the quota count | `503`; no link created | The quota never fails open |
 
 ## 10. Evolution and extraction path (D7)
 ```mermaid

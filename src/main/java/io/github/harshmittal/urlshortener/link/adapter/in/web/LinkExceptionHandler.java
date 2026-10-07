@@ -1,6 +1,7 @@
 package io.github.harshmittal.urlshortener.link.adapter.in.web;
 
 import io.github.harshmittal.urlshortener.link.domain.CodeGenerationFailedException;
+import io.github.harshmittal.urlshortener.link.domain.DailyQuotaExceededException;
 import io.github.harshmittal.urlshortener.link.domain.LinkNotFoundException;
 import io.github.harshmittal.urlshortener.link.domain.UrlRejectedException;
 import io.github.harshmittal.urlshortener.shared.web.ProblemDetails;
@@ -59,6 +60,16 @@ public class LinkExceptionHandler {
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)
                 .body(ProblemDetails.of(
                         HttpStatus.TOO_MANY_REQUESTS, "rate-limited", RequestIdFilter.requestIdOf(request)));
+    }
+
+    /** Same shape as {@code rate-limited}; {@code Retry-After} runs to the next 00:00 UTC (spec 02 R5, R6). */
+    @ExceptionHandler(DailyQuotaExceededException.class)
+    ResponseEntity<ProblemDetail> quotaExceeded(DailyQuotaExceededException e, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(e.retryAfterSeconds()))
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(ProblemDetails.of(
+                        HttpStatus.TOO_MANY_REQUESTS, "quota-exceeded", RequestIdFilter.requestIdOf(request)));
     }
 
     private static ResponseEntity<ProblemDetail> respond(HttpStatus status, ProblemDetail problem) {

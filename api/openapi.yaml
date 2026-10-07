@@ -65,7 +65,7 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/Problem"
-          description: Creation limit reached
+          description: Per-minute creation limit or daily link quota reached
           headers:
             Retry-After:
               schema:

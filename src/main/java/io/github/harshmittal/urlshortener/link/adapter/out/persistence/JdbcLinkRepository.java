@@ -7,6 +7,7 @@ import io.github.harshmittal.urlshortener.link.domain.ShortCode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -59,6 +60,20 @@ public final class JdbcLinkRepository implements LinkRepository {
                         WHERE code = :code AND status = 'ACTIVE'
                         """).param("code", code.value()).update();
         return updated == 1;
+    }
+
+    /** No status condition: deleted links count (spec 02 R2). Served by {@code links_owner_created_idx} (V4). */
+    @Override
+    public long countCreatedBy(UUID ownerKeyId, Instant from, Instant until) {
+        return jdbc.sql("""
+                        SELECT count(*) FROM link.links
+                        WHERE owner_key_id = :ownerKeyId AND created_at >= :from AND created_at < :until
+                        """)
+                .param("ownerKeyId", ownerKeyId)
+                .param("from", Timestamp.from(from))
+                .param("until", Timestamp.from(until))
+                .query(Long.class)
+                .single();
     }
 
     private static Link toLink(ResultSet row, int rowNumber) throws SQLException {

@@ -5,16 +5,22 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.harshmittal.urlshortener.shared.audit.domain.AuditAction;
 import io.github.harshmittal.urlshortener.shared.audit.domain.AuditContext;
+import io.github.harshmittal.urlshortener.shared.audit.domain.AuditEvent;
+import io.github.harshmittal.urlshortener.shared.audit.domain.AuditSink;
 import io.github.harshmittal.urlshortener.shared.audit.domain.AuditTrail;
+import io.github.harshmittal.urlshortener.shared.audit.domain.FailingAuditSink;
 import io.github.harshmittal.urlshortener.shared.audit.domain.InMemoryAuditSink;
 import io.github.harshmittal.urlshortener.shared.audit.domain.Outcome;
+import io.github.harshmittal.urlshortener.shared.ratelimit.domain.SettableClock;
 import io.github.harshmittal.urlshortener.shared.tx.domain.InlineUnitOfWork;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -32,15 +38,176 @@ class LinkServiceTest {
     private final InMemoryAuditSink auditSink = new InMemoryAuditSink();
     private final Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
 
+    /** Spec 01 tests run with no effective daily quota; {@link DailyQuota} covers spec 02. */
     private LinkService service(ShortCodeGenerator codes) {
+        return service(codes, clock, auditSink, Integer.MAX_VALUE);
+    }
+
+    private LinkService service(ShortCodeGenerator codes, Clock clock, AuditSink sink, int dailyQuota) {
         return new LinkService(
                 links,
                 codes,
                 new StandardUrlPolicy("https://sho.rt"),
-                new AuditTrail(auditSink, new InlineUnitOfWork(), clock, UUID::randomUUID),
+                new AuditTrail(sink, new InlineUnitOfWork(), clock, UUID::randomUUID),
                 new InlineUnitOfWork(),
                 clock,
-                UUID::randomUUID);
+                UUID::randomUUID,
+                dailyQuota);
+    }
+
+    @Test
+    @DisplayName("R11 (spec 02): a daily quota below 1 is refused")
+    void rejectsQuotaBelowOne() {
+        assertThatThrownBy(() -> service(noCodes(), clock, auditSink, 0)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /** Spec 02: the daily link quota per API key, set to 3 here. */
+    @Nested
+    class DailyQuota {
+
+        private static final int QUOTA = 3;
+        private static final Instant DAY_START = Instant.parse("2026-10-07T00:00:00Z");
+        private static final Instant LAST_MICRO_OF_DAY = Instant.parse("2026-10-07T23:59:59.999999Z");
+        private static final Instant NEXT_DAY_START = Instant.parse("2026-10-08T00:00:00Z");
+
+        private final SettableClock quotaClock = new SettableClock(Instant.parse("2026-10-07T12:00:00Z"));
+
+        private LinkService quotaService(ShortCodeGenerator codes) {
+            return service(codes, quotaClock, auditSink, QUOTA);
+        }
+
+        @Test
+        @DisplayName("AC1 (spec 02), S-09: at the quota a create is refused, stores nothing and writes RATE_LIMITED")
+        void refusesAtTheQuota() {
+            givenLinksAt(OWNER, QUOTA, DAY_START.plusSeconds(60));
+
+            assertThatThrownBy(() -> quotaService(noCodes()).create("https://example.com/x", OWNER, CONTEXT))
+                    .isInstanceOf(DailyQuotaExceededException.class);
+
+            assertThat(links.all()).hasSize(QUOTA);
+            assertThat(auditSink.events()).singleElement().satisfies(event -> {
+                assertThat(event.action()).isEqualTo(AuditAction.RATE_LIMITED);
+                assertThat(event.outcome()).isEqualTo(Outcome.REJECTED);
+                assertThat(event.actorKeyId()).isEqualTo(OWNER);
+                assertThat(event.resourceType()).isEqualTo("LINK");
+                assertThat(event.resourceId()).isNull();
+                assertThat(event.reasonCode()).isEqualTo("DAILY_QUOTA");
+            });
+        }
+
+        @Test
+        @DisplayName("AC2 (spec 02): the quota-th link of the day is allowed")
+        void allowsTheLastLinkOfTheQuota() {
+            givenLinksAt(OWNER, QUOTA - 1, DAY_START);
+
+            Link link = quotaService(new ScriptedShortCodeGenerator(List.of(FREE)))
+                    .create("https://example.com/x", OWNER, CONTEXT);
+
+            assertThat(link.code()).isEqualTo(FREE);
+            assertThat(links.all()).hasSize(QUOTA);
+        }
+
+        @Test
+        @DisplayName("AC3 (spec 02), S-09: deleted links still count toward the quota")
+        void deletedLinksCount() {
+            List<Link> created = givenLinksAt(OWNER, QUOTA, DAY_START.plusSeconds(60));
+            links.markDeleted(created.get(0).code());
+            links.markDeleted(created.get(1).code());
+
+            assertThatThrownBy(() -> quotaService(noCodes()).create("https://example.com/x", OWNER, CONTEXT))
+                    .isInstanceOf(DailyQuotaExceededException.class);
+        }
+
+        @Test
+        @DisplayName("AC5 (spec 02): links from the previous UTC day do not count at 00:00:00 UTC")
+        void previousDayDoesNotCount() {
+            givenLinksAt(OWNER, QUOTA, LAST_MICRO_OF_DAY);
+            quotaClock.set(NEXT_DAY_START);
+
+            Link link = quotaService(new ScriptedShortCodeGenerator(List.of(FREE)))
+                    .create("https://example.com/x", OWNER, CONTEXT);
+
+            assertThat(link.createdAt()).isEqualTo(NEXT_DAY_START);
+        }
+
+        @Test
+        @DisplayName("AC6, AC9 (spec 02): refused at 23:59:59.999999 with Retry-After 1, allowed at 00:00:00")
+        void dayEndsAtMidnightUtc() {
+            givenLinksAt(OWNER, QUOTA, DAY_START);
+            quotaClock.set(LAST_MICRO_OF_DAY);
+
+            assertThatThrownBy(() -> quotaService(noCodes()).create("https://example.com/x", OWNER, CONTEXT))
+                    .isInstanceOfSatisfying(
+                            DailyQuotaExceededException.class,
+                            e -> assertThat(e.retryAfterSeconds()).isEqualTo(1));
+
+            quotaClock.set(NEXT_DAY_START);
+            assertThat(quotaService(new ScriptedShortCodeGenerator(List.of(FREE)))
+                            .create("https://example.com/x", OWNER, CONTEXT)
+                            .code())
+                    .isEqualTo(FREE);
+        }
+
+        @Test
+        @DisplayName("AC8 (spec 02): Retry-After is the whole seconds to the next 00:00 UTC, rounded up")
+        void retryAfterRunsToMidnight() {
+            givenLinksAt(OWNER, QUOTA, DAY_START);
+            quotaClock.set(Instant.parse("2026-10-07T22:00:00.250Z"));
+
+            assertThatThrownBy(() -> quotaService(noCodes()).create("https://example.com/x", OWNER, CONTEXT))
+                    .isInstanceOfSatisfying(
+                            DailyQuotaExceededException.class,
+                            e -> assertThat(e.retryAfterSeconds()).isEqualTo(7200));
+        }
+
+        @Test
+        @DisplayName("AC7 (spec 02), S-08: another key's links do not use the caller's quota")
+        void quotaIsPerKey() {
+            givenLinksAt(OTHER_OWNER, QUOTA, DAY_START);
+
+            assertThat(quotaService(new ScriptedShortCodeGenerator(List.of(FREE)))
+                            .create("https://example.com/x", OWNER, CONTEXT)
+                            .ownerKeyId())
+                    .isEqualTo(OWNER);
+        }
+
+        @Test
+        @DisplayName("AC11 (spec 02): an audit failure does not change the refusal")
+        void auditFailureStillRefuses() {
+            givenLinksAt(OWNER, QUOTA, DAY_START);
+            LinkService failingAudit = service(noCodes(), quotaClock, new FailingAuditSink(), QUOTA);
+
+            assertThatThrownBy(() -> failingAudit.create("https://example.com/x", OWNER, CONTEXT))
+                    .isInstanceOf(DailyQuotaExceededException.class);
+            assertThat(links.all()).hasSize(QUOTA);
+        }
+
+        @Test
+        @DisplayName("AC14 (spec 02): the quota is checked before the URL policy; no URL_REJECTED")
+        void quotaBeforeUrlPolicy() {
+            givenLinksAt(OWNER, QUOTA, DAY_START);
+
+            assertThatThrownBy(() -> quotaService(noCodes()).create("javascript:alert(1)", OWNER, CONTEXT))
+                    .isInstanceOf(DailyQuotaExceededException.class);
+
+            assertThat(auditSink.events()).extracting(AuditEvent::action).containsExactly(AuditAction.RATE_LIMITED);
+        }
+
+        private List<Link> givenLinksAt(UUID owner, int count, Instant createdAt) {
+            List<Link> created = new ArrayList<>();
+            for (int i = 0; i < count; i++) {
+                Link link = new Link(
+                        UUID.randomUUID(),
+                        TestCodes.random(),
+                        "https://example.com/q",
+                        owner,
+                        LinkStatus.ACTIVE,
+                        createdAt);
+                links.insertIfCodeFree(link);
+                created.add(link);
+            }
+            return created;
+        }
     }
 
     @Test

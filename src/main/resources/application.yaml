@@ -45,3 +45,5 @@ springdoc:
 url-shortener:
   # Optional (R15).
   link-create-limit-per-minute: ${LINK_CREATE_LIMIT_PER_MINUTE:30}
+  # Optional (spec 02 R11): links per API key per UTC day. Checked by DailyQuotaSetting.
+  link-daily-quota: ${LINK_DAILY_QUOTA:500}

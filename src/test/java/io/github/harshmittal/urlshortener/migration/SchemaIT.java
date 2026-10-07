@@ -77,4 +77,15 @@ class SchemaIT {
 
         assertThat(uniqueOnCode).isEqualTo(1);
     }
+
+    @Test
+    @DisplayName("AC20 (spec 02): an index on link.links (owner_key_id, created_at) serves the daily quota count")
+    void dailyQuotaCountIsIndexed() {
+        String definition = jdbc.sql("""
+                        SELECT indexdef FROM pg_indexes
+                        WHERE schemaname = 'link' AND tablename = 'links' AND indexname = 'links_owner_created_idx'
+                        """).query(String.class).optional().orElse(null);
+
+        assertThat(definition).isNotNull().endsWith("(owner_key_id, created_at)");
+    }
 }

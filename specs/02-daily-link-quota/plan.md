@@ -75,7 +75,8 @@ All changes are in the `link` module, its composition in `app`, config and docs.
 | `api/openapi.yaml` | `429` description widened | T2 |
 | `src/test/.../app/DailyQuotaSettingTest.java` | new (AC19) | T2 |
 | `src/test/.../link/DailyQuotaIT.java` | new: end-to-end ACs with a settable clock | T2 |
-| `src/test/.../link/DailyQuotaDefaultIT.java` | new: default of 500 (AC17) | T2 |
+| `src/test/.../app/DailyQuotaDefaultIT.java` | new: default of 500 (AC17), through `DailyQuotaSetting.parse`. It lives in `app` (not `link` as first planned) because the parser is package-private there. | T2 |
+| `src/test/resources/application-integration.yaml` | + Hikari `maximum-pool-size: 5` (test profile only). This was not in the plan; see §9. | T2 |
 | `src/test/.../migration/SchemaIT.java` | + index exists (AC20) | T2 |
 | `src/test/.../shared/ratelimit/domain/SettableClock.java` | + `set(Instant)` helper for the IT | T2 |
 | `docs/ARCHITECTURE.md` | create-link flow shows both limits; §9 failure-mode row | T2 |
@@ -240,6 +241,7 @@ The in-memory fake gets the same check in reverse, by reasoning: `LinkServiceTes
 **Gate per task:** `./gradlew spotlessApply` then `./gradlew check` (unit, integration, ArchUnit, Spotless, JaCoCo 80% on domain, oasdiff), and `gitleaks git --staged` before the commit plus `gitleaks git` after it (gitleaks 8.30.1; staged changes and commit history only, never the working folder; SECURITY.md §8).
 
 ## 9. Risks and rollback
+- **Found in T2: the test database ran out of connections.** `DailyQuotaIT` adds two Spring test contexts (main and nested). Each cached context keeps its own Hikari pool (default 10) against the one shared Testcontainers Postgres (`max_connections` 100). With the two new contexts, `ErrorResponsesIT` failed to start with `remaining connection slots are reserved for roles with the SUPERUSER attribute`. Fix: `maximum-pool-size: 5` in the integration test profile only. No IT sends concurrent requests, and one request needs at most two connections (a rejection's audit write runs in its own transaction). Production keeps Hikari's default.
 - **Risk: the clock override leaks into other ITs.** It is declared only in `DailyQuotaIT`'s own context, so cached contexts used by other ITs keep `Clock.systemUTC()`.
 - **Risk: existing `LinkServiceTest` fixture change.** Only the constructor call gains `Integer.MAX_VALUE`. No assertion changes, so AC21 holds.
 - **Risk: a rolling deploy with two app versions.** Old instances simply don't enforce the quota. The data shape is unchanged.

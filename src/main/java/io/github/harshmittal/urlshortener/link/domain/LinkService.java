@@ -8,12 +8,16 @@ import io.github.harshmittal.urlshortener.shared.audit.domain.AuditTrail;
 import io.github.harshmittal.urlshortener.shared.id.domain.IdGenerator;
 import io.github.harshmittal.urlshortener.shared.tx.domain.UnitOfWork;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Owner use cases for links: create (T2), read and soft delete (T3). */
+/** Owner use cases for links: create (T2) within the daily quota (spec 02), read and soft delete (T3). */
 public final class LinkService {
 
     static final String RESOURCE_TYPE = "LINK";
@@ -21,6 +25,8 @@ public final class LinkService {
     static final int MAX_ATTEMPTS = 4;
     /** ACCESS_DENIED reason for another key's link; a wrong role is WRONG_ROLE (A13). */
     static final String NOT_OWNER = "NOT_OWNER";
+    /** RATE_LIMITED reason for the daily link quota; the per-minute limit uses CREATE_LIMIT (spec 02 R7). */
+    static final String DAILY_QUOTA = "DAILY_QUOTA";
 
     private static final Logger log = LoggerFactory.getLogger(LinkService.class);
 
@@ -31,6 +37,7 @@ public final class LinkService {
     private final UnitOfWork unitOfWork;
     private final Clock clock;
     private final IdGenerator ids;
+    private final int dailyQuota;
 
     public LinkService(
             LinkRepository links,
@@ -39,7 +46,11 @@ public final class LinkService {
             AuditTrail audit,
             UnitOfWork unitOfWork,
             Clock clock,
-            IdGenerator ids) {
+            IdGenerator ids,
+            int dailyQuota) {
+        if (dailyQuota < 1) {
+            throw new IllegalArgumentException("The daily link quota must be at least 1");
+        }
         this.links = links;
         this.codes = codes;
         this.urlPolicy = urlPolicy;
@@ -47,16 +58,20 @@ public final class LinkService {
         this.unitOfWork = unitOfWork;
         this.clock = clock;
         this.ids = ids;
+        this.dailyQuota = dailyQuota;
     }
 
     /**
      * Creates a link with a new code, even for a target the owner shortened before (R6). The link
      * and its {@code LINK_CREATED} event commit together (R18).
      *
+     * @throws DailyQuotaExceededException if the owner has used its daily quota; checked before the
+     *     URL policy and audited as RATE_LIMITED (spec 02 R5, R7, R8)
      * @throws UrlRejectedException if the target fails the URL policy; audited as URL_REJECTED
      * @throws CodeGenerationFailedException if every attempt collided; nothing is stored
      */
     public Link create(String targetUrl, UUID ownerKeyId, AuditContext context) {
+        requireWithinDailyQuota(ownerKeyId, context);
         String normalized = switch (urlPolicy.evaluate(targetUrl)) {
             case Accepted accepted -> accepted.normalizedUrl();
             case Rejected rejected -> {
@@ -106,6 +121,23 @@ public final class LinkService {
             return link;
         });
         log.info("Link deleted: code={} actorKeyId={}", code, ownerKeyId);
+    }
+
+    /**
+     * Counts the owner's links created in the current UTC day, deleted ones included (spec 02 R1, R2).
+     * The count and the later insert are not serialized, so concurrent requests at the limit may
+     * overshoot it by one or two (spec 02 R9, L1).
+     */
+    private void requireWithinDailyQuota(UUID ownerKeyId, AuditContext context) {
+        Instant now = clock.instant();
+        LocalDate today = LocalDate.ofInstant(now, ZoneOffset.UTC);
+        Instant dayStart = today.atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant nextDayStart = today.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+        if (links.countCreatedBy(ownerKeyId, dayStart, nextDayStart) >= dailyQuota) {
+            log.warn("Rate limited: reason={} actorKeyId={}", DAILY_QUOTA, ownerKeyId);
+            audit.recordRejection(context, AuditAction.RATE_LIMITED, RESOURCE_TYPE, null, DAILY_QUOTA);
+            throw new DailyQuotaExceededException(Duration.between(now, nextDayStart));
+        }
     }
 
     private Link ownActiveLink(String code, UUID ownerKeyId, AuditContext context) {
