@@ -53,6 +53,8 @@ Outcome values: **Accepted** (used as generated) · **Edited** (used after engin
 |---|---|---|---|---|---|
 | 0 | 2026-10-05 | 21:17 | 23:30 | Planning and decisions (D1–D12) | Before the build; options explored with Claude chat, decisions made by me |
 | 1 | 2026-10-05/06 | 23:30 | 02:15 | Environment setup, project rules, spec 01 to Gate 1 | About 30 minutes lost to Docker (Rosetta) and macOS folder permissions |
-| 2 | 2026-10-07 | 05:51 | | Gates 2 and 3, build spec 01 | |
+| 2 | 2026-10-07 | 05:51 | 22:30 | Spec 01 build, specs 02 and 03, wrap-up | |
+
+Breaks in Session 2: 09:50–10:30, 10:35–11:05, 11:45–14:40, 17:25–20:50.
 
 Gaps between sessions are planned breaks; the work was split around other commitments.

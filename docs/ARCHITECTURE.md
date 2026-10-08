@@ -4,10 +4,11 @@ Owner: the engineer. Plans (`specs/*/plan.md`) must conform to this document and
 Low-level design for each change lives in that spec's `plan.md`.
 
 ## 1. Purpose and scope
-A service that turns long URLs into short codes, redirects visitors from a short code to the original URL, and reports click counts to the link's owner.
+A service that turns long URLs into short codes, redirects visitors from a short code to the original URL, and lets owners list their own links.
 API clients authenticate with API keys and manage only their own links. Visitors following a short link do not authenticate.
 
-In scope: link creation and deletion, redirects, link takedown, click analytics, audit of every state change.
+In scope: link creation, listing and deletion, redirects, a daily link quota, and audit of every state change.
+Deferred (D16): link takedown, click analytics, the Redis cache and the per-IP redirect limit.
 Out of scope: user accounts and login UI, custom domains, custom aliases, link previews, billing.
 
 ## 2. Quality attributes
@@ -27,10 +28,11 @@ flowchart LR
   client["API client<br/>(API key)"] -->|"manage links, read stats"| svc["URL shortener<br/>(modular monolith)"]
   visitor["Visitor<br/>(browser)"] -->|"GET /{code}"| svc
   svc --> pg[("PostgreSQL")]
-  svc -.->|"from spec 02"| redis[("Redis")]
+  svc -.->|"deferred (D16)"| redis[("Redis")]
 ```
 
 ## 4. Component view
+This diagram shows the target design. README.md has the as-built view after specs 01 to 03.
 ```mermaid
 flowchart TB
   subgraph app["url-shortener (one deployable)"]

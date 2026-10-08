@@ -3,7 +3,7 @@
 Owner: the engineer. Agents may propose changes; only the engineer edits this file.
 
 ## 1. Scope
-Applies to the URL shortener (a modular monolith: link, redirect and analytics modules), its PostgreSQL and Redis dependencies, its container image, and the AI-assisted way it is built (§8).
+Applies to the URL shortener (a modular monolith: link and redirect modules), its PostgreSQL dependency (analytics and Redis deferred, D16), its container image, and the AI-assisted way it is built (§8).
 Security is proportionate to the threat model below. Controls not justified by a listed threat are recorded as out of scope (§10), not silently omitted.
 
 ## 2. Assets
